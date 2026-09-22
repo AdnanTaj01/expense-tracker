@@ -48,5 +48,10 @@ class Account(Base):
 
     user: Mapped["User"] = relationship(back_populates="accounts")  # noqa: F821
 
+    transactions: Mapped[list["Transaction"]] = relationship(  # noqa: F821
+        back_populates="account",
+        cascade="all, delete-orphan",
+    )
+
     def __repr__(self) -> str:
         return f"<Account id={self.id} name={self.name!r} user_id={self.user_id}>"

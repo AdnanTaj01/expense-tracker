@@ -11,6 +11,13 @@ from app.schemas.category import (
     CategoryRead,
     CategoryUpdate,
 )
+from app.schemas.transaction import (
+    TransactionCreate,
+    TransactionKind,
+    TransactionList,
+    TransactionRead,
+    TransactionUpdate,
+)
 from app.schemas.user import UserBase, UserCreate, UserRead
 
 __all__ = [
@@ -24,6 +31,11 @@ __all__ = [
     "CategoryUpdate",
     "ChangePassword",
     "Token",
+    "TransactionCreate",
+    "TransactionKind",
+    "TransactionList",
+    "TransactionRead",
+    "TransactionUpdate",
     "UserBase",
     "UserCreate",
     "UserRead",

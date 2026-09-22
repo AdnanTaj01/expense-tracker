@@ -49,5 +49,8 @@ class Category(Base):
 
     user: Mapped["User"] = relationship(back_populates="categories")  # noqa: F821
 
+    transactions: Mapped[list["Transaction"]] = relationship(  # noqa: F821
+        back_populates="category",
+    )
     def __repr__(self) -> str:
         return f"<Category id={self.id} name={self.name!r} kind={self.kind}>"
