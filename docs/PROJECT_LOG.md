@@ -1,6 +1,6 @@
 # Expense Tracker — Master Project Log
 
-Last updated: Phase 7 complete (2026-09-21)
+Last updated: Phase 8 complete (2026-09-22)
 
 Ye file project ka single source of truth hai. Isme project ka
 overview, decisions, setup steps, har phase ka record, aur
@@ -126,6 +126,7 @@ Command convention:
     |   |   |-- versions/
     |   |       |-- ea030cbc5ab6_create_alembic_version_table.py
     |   |       |-- 7673bc3416bf_create_users_table.py
+    |   |       |-- 3c9938a801aa_create_accounts_and_categories_tables.py
     |   |-- app/
     |   |   |-- __init__.py
     |   |   |-- main.py             FastAPI app + router include
@@ -136,26 +137,36 @@ Command convention:
     |   |   |   |-- base.py         DeclarativeBase
     |   |   |   |-- session.py      engine + SessionLocal + get_db
     |   |   |-- models/
-    |   |   |   |-- __init__.py     exports User
-    |   |   |   |-- user.py         users table
+    |   |   |   |-- __init__.py     exports User, Account, Category
+    |   |   |   |-- user.py
+    |   |   |   |-- account.py
+    |   |   |   |-- category.py
     |   |   |-- schemas/
     |   |   |   |-- __init__.py
     |   |   |   |-- user.py         UserBase, UserCreate, UserRead
     |   |   |   |-- auth.py         Token, ChangePassword
+    |   |   |   |-- account.py      AccountBase/Create/Update/Read
+    |   |   |   |-- category.py     CategoryBase/Create/Update/Read
     |   |   |-- services/
     |   |   |   |-- __init__.py
-    |   |   |   |-- user_service.py create_user, authenticate, etc.
+    |   |   |   |-- user_service.py
+    |   |   |   |-- account_service.py
+    |   |   |   |-- category_service.py (includes seed defaults)
     |   |   |-- api/
     |   |   |   |-- __init__.py
     |   |   |   |-- deps.py         get_current_user
     |   |   |   |-- v1/
     |   |   |       |-- __init__.py api_router
-    |   |   |       |-- auth.py     register, login, me, change-password
+    |   |   |       |-- auth.py
+    |   |   |       |-- accounts.py
+    |   |   |       |-- categories.py
     |   |   |-- ai/                 (Phase 18+)
     |   |-- tests/
     |   |   |-- __init__.py
     |   |   |-- conftest.py         fixtures: client, db_session
-    |   |   |-- test_auth.py        8 tests, all passing
+    |   |   |-- test_auth.py        8 tests
+    |   |   |-- test_accounts.py    8 tests
+    |   |   |-- test_categories.py  9 tests
     |   |-- uploads/                gitignored
     |-- frontend/                   (Phase 12+)
     |-- deploy/                     (Phase 22+)
@@ -291,8 +302,7 @@ Python 3.13.15, Node 24, Git, Docker, VS Code extensions install.
 - Commit: f23b7bb
 
 ### Phase 6 - User Model (Done)
-- app/models/user.py (users table: id, email, password_hash,
-  full_name, currency, is_active, created_at, updated_at)
+- app/models/user.py (users table)
 - app/schemas/user.py (UserBase, UserCreate, UserRead)
 - Migration: 7673bc3416bf_create_users_table.py
 - Email uniqueness constraint verified
@@ -305,27 +315,86 @@ Python 3.13.15, Node 24, Git, Docker, VS Code extensions install.
   create_access_token, decode_access_token
 - app/api/deps.py - get_current_user (Bearer token)
 - app/schemas/auth.py - Token, ChangePassword
-- app/services/user_service.py - create_user, authenticate,
-  change_password, get_user_by_email
-- app/api/v1/auth.py - 4 endpoints
-- app/main.py mein api_router include
+- app/services/user_service.py
+- app/api/v1/auth.py - register/login/me/change-password
 - pytest.ini, tests/conftest.py, tests/test_auth.py
-- 8 tests, all passing
+- 8 tests passing
 - Masla: import app.models ne app naam overwrite kar diya
   -> fix: from app.main import app as fastapi_app in conftest
+- Commit: f254fb2
+
+### Phase 8 - Accounts aur Categories (Done)
+- app/models/account.py (accounts table: id, user_id FK CASCADE,
+  name, type, balance Numeric(12,2), currency, is_active,
+  timestamps)
+- app/models/category.py (categories table: id, user_id FK CASCADE,
+  name, kind, is_default, timestamps, uq_category_user_name_kind)
+- app/models/user.py updated: accounts + categories relationships
+  with cascade="all, delete-orphan"
+- Migration: 3c9938a801aa_create_accounts_and_categories_tables.py
+- Schemas:
+  - app/schemas/account.py (AccountType Literal,
+    AccountCreate, AccountUpdate, AccountRead)
+  - app/schemas/category.py (CategoryKind Literal,
+    CategoryCreate, CategoryUpdate, CategoryRead)
+  - NOTE: AccountUpdate intentionally excludes balance
+- Services:
+  - app/services/account_service.py (list/get/create/update/delete,
+    all ownership-scoped via user_id)
+  - app/services/category_service.py (same + DEFAULT_CATEGORIES list
+    of 12 + seed_default_categories)
+  - app/services/user_service.py: create_user now calls
+    seed_default_categories after user creation
+- Endpoints:
+  - app/api/v1/accounts.py (5 routes)
+  - app/api/v1/categories.py (5 routes, ?kind= filter)
+  - app/api/v1/__init__.py includes all three routers
+- Tests:
+  - tests/test_accounts.py (8 tests)
+  - tests/test_categories.py (9 tests)
+  - Ownership test: user B gets 404 on user A's account/category
+  - 25 tests total passing (8 auth + 8 accounts + 9 categories)
+- Docker was offline at one point; restart fixed it.
 - Commit: (pending)
 
 ---
 
 ## 10. API Endpoints (current)
 
+### Meta
+
+| Method | Path        | Purpose         | Auth |
+|--------|-------------|-----------------|------|
+| GET    | /health     | Liveness check  | No   |
+
+### Auth
+
 | Method | Path                          | Purpose                | Auth |
 |--------|-------------------------------|------------------------|------|
-| GET    | /health                       | Liveness check         | No   |
 | POST   | /api/v1/auth/register         | Create new user        | No   |
 | POST   | /api/v1/auth/login            | Get JWT access token   | No   |
 | GET    | /api/v1/auth/me               | Current user profile   | Yes  |
 | POST   | /api/v1/auth/change-password  | Change password        | Yes  |
+
+### Accounts (all ownership-scoped)
+
+| Method | Path                          | Purpose                | Auth |
+|--------|-------------------------------|------------------------|------|
+| GET    | /api/v1/accounts              | List (?only_active=true) | Yes |
+| POST   | /api/v1/accounts              | Create                 | Yes  |
+| GET    | /api/v1/accounts/{id}         | Get one                | Yes  |
+| PATCH  | /api/v1/accounts/{id}         | Update (no balance)    | Yes  |
+| DELETE | /api/v1/accounts/{id}         | Delete                 | Yes  |
+
+### Categories (all ownership-scoped)
+
+| Method | Path                          | Purpose                | Auth |
+|--------|-------------------------------|------------------------|------|
+| GET    | /api/v1/categories            | List (?kind=income/expense) | Yes |
+| POST   | /api/v1/categories            | Create                 | Yes  |
+| GET    | /api/v1/categories/{id}       | Get one                | Yes  |
+| PATCH  | /api/v1/categories/{id}       | Update                 | Yes  |
+| DELETE | /api/v1/categories/{id}       | Delete                 | Yes  |
 
 Auth = Authorization: Bearer <jwt> header.
 
@@ -449,6 +518,12 @@ Fix:
 Action: Foran rotate karein. Git history se delete karna kaafi nahi.
 Agar repo private hai to rotate karna optional, but recommended.
 
+### Docker Desktop is not running
+Symptom: docker compose ps fails with
+"failed to connect to the docker API at npipe://..."
+Fix: Docker Desktop kholain, green whale icon ka intezar karein,
+phir docker compose up -d chalayein.
+
 ---
 
 ## 13. Docker Details
@@ -481,6 +556,10 @@ when you sign in" tick karein.
 - OneDrive mein project na rakhein - node_modules aur .venv
   sync mein problems create karte hain.
 - Har phase ke commit se pehle README ka "Progress" table update karein.
+- Account balance AccountUpdate mein intentionally nahi hai - balance
+  sirf transactions se badalta hai (Phase 9).
+- Har naye user ko 12 default categories milti hain (3 income, 9
+  expense) - seed_default_categories function se.
 
 ---
 
@@ -488,7 +567,6 @@ when you sign in" tick karein.
 
 | Phase | Scope                                    | Est. days |
 |-------|------------------------------------------|-----------|
-| 8     | Accounts aur categories CRUD             | 2         |
 | 9     | Transactions + safe balance updates      | 3         |
 | 10    | Budgets (MVP) + recurring (Phase 2)      | 2         |
 | 11    | Dashboard backend (summary, breakdown)   | 1         |

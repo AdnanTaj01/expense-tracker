@@ -104,13 +104,40 @@ Create the test database once:
 
 ## API endpoints (current)
 
+### Auth
+
 | Method | Path                          | Purpose                |
 |--------|-------------------------------|------------------------|
-| GET    | /health                       | Liveness check         |
 | POST   | /api/v1/auth/register         | Create a new user      |
 | POST   | /api/v1/auth/login            | Get a JWT access token |
 | GET    | /api/v1/auth/me               | Current user profile   |
 | POST   | /api/v1/auth/change-password  | Change password        |
+
+### Accounts (all require auth)
+
+| Method | Path                          | Purpose                |
+|--------|-------------------------------|------------------------|
+| GET    | /api/v1/accounts              | List user's accounts   |
+| POST   | /api/v1/accounts              | Create an account      |
+| GET    | /api/v1/accounts/{id}         | Get one account        |
+| PATCH  | /api/v1/accounts/{id}         | Update account         |
+| DELETE | /api/v1/accounts/{id}         | Delete account         |
+
+### Categories (all require auth)
+
+| Method | Path                          | Purpose                       |
+|--------|-------------------------------|-------------------------------|
+| GET    | /api/v1/categories            | List (filter by ?kind=)       |
+| POST   | /api/v1/categories            | Create a category             |
+| GET    | /api/v1/categories/{id}       | Get one category              |
+| PATCH  | /api/v1/categories/{id}       | Update category               |
+| DELETE | /api/v1/categories/{id}       | Delete category               |
+
+### Meta
+
+| Method | Path                          | Purpose                |
+|--------|-------------------------------|------------------------|
+| GET    | /health                       | Liveness check         |
 
 ## Progress
 
@@ -124,8 +151,8 @@ Create the test database once:
 | 5     | SQLAlchemy + Alembic setup        | Done    |
 | 6     | User model + users table          | Done    |
 | 7     | Auth (JWT + Argon2) + pytest      | Done    |
-| 8     | Accounts and categories           | Next    |
-| 9     | Transactions                      |         |
+| 8     | Accounts and categories           | Done    |
+| 9     | Transactions                      | Next    |
 | 10    | Budgets and recurring             |         |
 | 11    | Dashboard API                     |         |
 | 12-15 | React app (MVP checkpoint)        |         |
@@ -147,3 +174,5 @@ decisions, troubleshooting, and command reference.
   Server-side revocation (refresh tokens) is on the hardening list.
 - Docker container is `expense_db` on host port **5433** (not 5432)
   because port 5432 is already in use on the host machine.
+- Every new user automatically gets 12 default categories
+  (3 income, 9 expense).

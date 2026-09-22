@@ -1,7 +1,7 @@
 from datetime import datetime
 
 from sqlalchemy import Boolean, DateTime, String, func
-from sqlalchemy.orm import Mapped, mapped_column
+from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
@@ -33,6 +33,15 @@ class User(Base):
         nullable=False,
         server_default=func.now(),
         onupdate=func.now(),
+    )
+
+    accounts: Mapped[list["Account"]] = relationship(  # noqa: F821
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    categories: Mapped[list["Category"]] = relationship(  # noqa: F821
+        back_populates="user",
+        cascade="all, delete-orphan",
     )
 
     def __repr__(self) -> str:

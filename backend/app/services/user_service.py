@@ -1,6 +1,8 @@
 from sqlalchemy import select
 from sqlalchemy.orm import Session
 
+from app.services import category_service
+from app.services.category_service import seed_default_categories
 from app.core.security import hash_password, verify_password
 from app.models import User
 from app.schemas.user import UserCreate
@@ -29,8 +31,10 @@ def create_user(db: Session, payload: UserCreate) -> User:
     db.add(user)
     db.commit()
     db.refresh(user)
-    return user
 
+    # Give every new user a starter set of categories.
+    seed_default_categories(db, user)
+    return user
 
 def authenticate(db: Session, email: str, password: str) -> User | None:
     """Return the user if credentials match, else None."""
