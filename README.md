@@ -7,13 +7,13 @@ the source of truth.
 
 ## Stack
 
-- **Frontend:** React + TypeScript + Tailwind CSS (Vite) — Phase 12+
+- **Frontend:** React 19 + TypeScript + Tailwind CSS + Vite ✅ (foundation)
 - **Backend:** Python 3.13 + FastAPI ✅ (complete)
 - **Database:** PostgreSQL 18 + pgvector (Docker)
 - **ORM / migrations:** SQLAlchemy 2.x (sync) + Alembic + psycopg 3
 - **Auth:** JWT (PyJWT) + Argon2 (pwdlib)
 - **AI:** LLM provider TBD + RAG via pgvector — Phase 18+
-- **Testing:** pytest (backend) — 90 tests passing
+- **Testing:** pytest (backend, 90 tests) + Vitest (frontend, 27 tests)
 
 ## Architecture rule
 
@@ -27,7 +27,7 @@ the source of truth.
 
     expense-tracker/
     |-- docs/          decisions, project log, guides
-    |-- backend/       FastAPI app
+    |-- backend/       FastAPI app (complete)
     |   |-- app/
     |   |   |-- api/       routers, deps
     |   |   |-- core/      config, security
@@ -37,15 +37,24 @@ the source of truth.
     |   |   |-- services/  business logic
     |   |   |-- ai/        (Phase 18+)
     |   |-- alembic/       migrations
-    |   |-- tests/         pytest suite
+    |   |-- tests/         pytest suite (90 tests)
     |   |-- requirements.txt
-    |-- frontend/      React app (Phase 12+)
+    |-- frontend/      React app
+    |   |-- src/
+    |   |   |-- api/       HTTP client + API modules
+    |   |   |-- components/Layout, ProtectedRoute
+    |   |   |-- context/   AuthContext
+    |   |   |-- pages/     Route pages
+    |   |   |-- test/      Vitest setup + helpers
+    |   |   |-- types/     TypeScript types
+    |   |-- package.json
+    |   |-- vite.config.ts (includes Vitest config)
     |-- deploy/        production compose, backups (Phase 22+)
 
 ## Prerequisites
 
 - Python 3.13.x
-- Node.js 24 LTS (Phase 12+)
+- Node.js 24 LTS
 - Docker Desktop
 - Git
 
@@ -75,6 +84,10 @@ Backend `.env` (in `backend/`):
 **Important:** in `DATABASE_URL`, encode these characters:
 `@` -> `%40`, `:` -> `%3A`, `/` -> `%2F`, `#` -> `%23`, `%` -> `%25`.
 
+Frontend `.env` (in `frontend/`) — optional:
+
+    VITE_API_BASE_URL=http://localhost:8000
+
 The `.env` files are git-ignored. Use `.env.example` as a template.
 
 ### 3. Start PostgreSQL
@@ -93,10 +106,26 @@ The `.env` files are git-ignored. Use `.env.example` as a template.
 
 API docs: http://localhost:8000/docs
 
-### 5. Run tests
+### 5. Frontend
+
+    cd frontend
+    npm install
+    npm run dev
+
+App: http://localhost:5173
+
+### 6. Run tests
+
+Backend:
 
     cd backend
     pytest
+
+Frontend:
+
+    cd frontend
+    npm test
+    npm run test:coverage
 
 Create the test database once:
 
@@ -104,11 +133,7 @@ Create the test database once:
 
 ## API endpoints
 
-### Meta
-
-| Method | Path        | Purpose         |
-|--------|-------------|-----------------|
-| GET    | /health     | Liveness check  |
+All protected endpoints require: `Authorization: Bearer <jwt>`.
 
 ### Auth
 
@@ -119,119 +144,81 @@ Create the test database once:
 | GET    | /api/v1/auth/me               | Current user profile   |
 | POST   | /api/v1/auth/change-password  | Change password        |
 
-### Accounts
+### Accounts, Categories, Transactions
 
-| Method | Path                          | Purpose                |
-|--------|-------------------------------|------------------------|
-| GET    | /api/v1/accounts              | List user's accounts   |
-| POST   | /api/v1/accounts              | Create an account      |
-| GET    | /api/v1/accounts/{id}         | Get one account        |
-| PATCH  | /api/v1/accounts/{id}         | Update account         |
-| DELETE | /api/v1/accounts/{id}         | Delete account         |
+| Resource | Endpoints |
+|----------|-----------|
+| Accounts | `GET/POST /api/v1/accounts`, `GET/PATCH/DELETE /api/v1/accounts/{id}` |
+| Categories | `GET/POST /api/v1/categories`, `GET/PATCH/DELETE /api/v1/categories/{id}` |
+| Transactions | `GET/POST /api/v1/transactions`, `GET/PATCH/DELETE /api/v1/transactions/{id}` |
 
-### Categories
+Transaction list supports: `account_id`, `category_id`, `kind`, `from_date`, `to_date`, `limit`, `offset`.
 
-| Method | Path                          | Purpose                       |
-|--------|-------------------------------|-------------------------------|
-| GET    | /api/v1/categories            | List (filter by ?kind=)       |
-| POST   | /api/v1/categories            | Create a category             |
-| GET    | /api/v1/categories/{id}       | Get one category              |
-| PATCH  | /api/v1/categories/{id}       | Update category               |
-| DELETE | /api/v1/categories/{id}       | Delete category               |
+### Budgets and Recurring
 
-### Transactions
-
-| Method | Path                          | Purpose                                       |
-|--------|-------------------------------|-----------------------------------------------|
-| GET    | /api/v1/transactions          | List with filters + pagination                |
-| POST   | /api/v1/transactions          | Create (auto re-balances account)             |
-| GET    | /api/v1/transactions/{id}     | Get one                                       |
-| PATCH  | /api/v1/transactions/{id}     | Update (re-balances correctly)                |
-| DELETE | /api/v1/transactions/{id}     | Delete (reverses balance)                     |
-
-Query params: `account_id`, `category_id`, `kind`, `from_date`, `to_date`,
-`limit` (1-200), `offset`.
-
-### Budgets
-
-| Method | Path                          | Purpose                                       |
-|--------|-------------------------------|-----------------------------------------------|
-| GET    | /api/v1/budgets               | List (?year=, ?month=) with live usage        |
-| POST   | /api/v1/budgets               | Create (expense categories only)              |
-| GET    | /api/v1/budgets/{id}          | Get one with usage                            |
-| PATCH  | /api/v1/budgets/{id}          | Update limit                                  |
-| DELETE | /api/v1/budgets/{id}          | Delete                                        |
-
-Response includes: `spent`, `remaining`, `percentage`, `is_exceeded`.
-
-### Recurring (Phase 2 scope)
-
-| Method | Path                                  | Purpose                             |
-|--------|---------------------------------------|-------------------------------------|
-| GET    | /api/v1/recurring                     | List rules                          |
-| POST   | /api/v1/recurring                     | Create rule                         |
-| GET    | /api/v1/recurring/{id}                | Get one                             |
-| PATCH  | /api/v1/recurring/{id}                | Update rule                         |
-| DELETE | /api/v1/recurring/{id}                | Delete rule                         |
-| POST   | /api/v1/recurring/{id}/generate       | Manually materialize due occurrences|
-
-No background scheduler in dev — trigger manually.
+| Resource | Endpoints |
+|----------|-----------|
+| Budgets | `GET/POST /api/v1/budgets`, `GET/PATCH/DELETE /api/v1/budgets/{id}` |
+| Recurring | `GET/POST /api/v1/recurring`, `GET/PATCH/DELETE /api/v1/recurring/{id}`, `POST /api/v1/recurring/{id}/generate` |
 
 ### Dashboard
 
 | Method | Path                                  | Purpose                                       |
 |--------|---------------------------------------|-----------------------------------------------|
 | GET    | /api/v1/dashboard/summary             | Total balance + month income/expense/net      |
-| GET    | /api/v1/dashboard/by-category         | Expense breakdown by category (?year, ?month) |
+| GET    | /api/v1/dashboard/by-category         | Expense breakdown by category                 |
 | GET    | /api/v1/dashboard/trend               | Last N months income vs expense               |
-| GET    | /api/v1/dashboard/recent              | Recent transactions (limit)                   |
+| GET    | /api/v1/dashboard/recent              | Recent transactions                           |
 | GET    | /api/v1/dashboard/overview            | All of the above in one call                  |
 
-All endpoints require auth: `Authorization: Bearer <jwt>`.
+### Meta
+
+| Method | Path        | Purpose         |
+|--------|-------------|-----------------|
+| GET    | /health     | Liveness check  |
 
 ## Progress
 
-| Phase | Scope                             | Status  |
-|-------|-----------------------------------|---------|
-| 0     | Overview and decisions            | Done    |
-| 1     | Installs and verification         | Done    |
-| 2     | Repo, folders, .gitignore         | Done    |
-| 3     | PostgreSQL + pgvector in Docker   | Done    |
-| 4     | FastAPI foundation + /health      | Done    |
-| 5     | SQLAlchemy + Alembic setup        | Done    |
-| 6     | User model + users table          | Done    |
-| 7     | Auth (JWT + Argon2) + pytest      | Done    |
-| 8     | Accounts and categories           | Done    |
-| 9     | Transactions + safe balance       | Done    |
-| 10    | Budgets and recurring             | Done    |
-| 11    | Dashboard API                     | Done ✅ |
-| 12-15 | React app (MVP checkpoint)        | Next    |
-| 16-17 | Analytics, uploads, notifications |         |
-| 18-20 | AI: RAG, chat, agent tools        |         |
-| 21    | Testing and security sweep        |         |
-| 22    | Dockerization and deployment      |         |
-| 23    | Final QA and docs                 |         |
+| Phase | Scope                             | Status |
+|-------|-----------------------------------|--------|
+| 0     | Overview and decisions            | Done   |
+| 1     | Installs and verification         | Done   |
+| 2     | Repo, folders, .gitignore         | Done   |
+| 3     | PostgreSQL + pgvector in Docker   | Done   |
+| 4     | FastAPI foundation + /health      | Done   |
+| 5     | SQLAlchemy + Alembic setup        | Done   |
+| 6     | User model + users table          | Done   |
+| 7     | Auth (JWT + Argon2) + pytest      | Done   |
+| 8     | Accounts and categories           | Done   |
+| 9     | Transactions + safe balance       | Done   |
+| 10    | Budgets and recurring             | Done   |
+| 11    | Dashboard API                     | Done   |
+| 12    | React foundation + auth UI        | Done ✅|
+| 13    | Frontend auth wiring              | Next   |
+| 14-15 | Dashboard, transactions, all UI   |        |
+| 16-17 | Analytics, uploads, notifications |        |
+| 18-20 | AI: RAG, chat, agent tools        |        |
+| 21    | Testing and security sweep        |        |
+| 22    | Dockerization and deployment      |        |
+| 23    | Final QA and docs                 |        |
 
-**Backend MVP complete.** 90 tests passing.
+**Backend MVP complete** (90 tests). **Frontend foundation complete** (27 tests).
 
-See `docs/PROJECT_LOG.md` for the full phase-by-phase record,
-decisions, troubleshooting, and command reference.
+See `docs/PROJECT_LOG.md` for the full phase-by-phase record.
 
 ## Notes
 
+- Money is stored as `NUMERIC(12,2)` and handled as `Decimal` — never `float`.
 - One currency per user in the MVP (defaults to `PKR`).
-- Money is stored as `NUMERIC(12,2)` and handled as `Decimal` — never
-  `float`.
 - JWT is short-lived; logout means the client discards the token.
   Server-side revocation (refresh tokens) is on the hardening list.
 - Docker container is `expense_db` on host port **5433** (not 5432).
-- Every new user automatically gets 12 default categories
-  (3 income, 9 expense).
+- Every new user automatically gets 12 default categories.
 - Transaction `amount` is always positive; sign comes from `kind`.
-- Account balance is updated in the same DB transaction as the
-  transaction row. A dedicated test recomputes balance from the
-  transactions and verifies it matches.
+- Account balance is updated in the same DB transaction as the transaction row.
 - Budget usage is computed live from transactions (not stored).
 - Recurring rules are generated on demand; `end_date` is inclusive.
-- Tests use a separate database (`expense_tracker_test`); tables are
-  truncated between tests, so test data never touches dev data.
+- Tests use a separate DB (`expense_tracker_test`) for backend;
+  frontend tests run in `jsdom` (no real HTTP).
+- Frontend test reports: `frontend/coverage/` (HTML + LCOV) and
+  `frontend/test-results/junit.xml` (CI-ready).

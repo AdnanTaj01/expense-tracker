@@ -35,3 +35,8 @@ Thumbs.db
 
 # Docker
 *.pid
+
+# Frontend test outputs
+frontend/coverage/
+frontend/test-results/
+frontend/.vitest/
