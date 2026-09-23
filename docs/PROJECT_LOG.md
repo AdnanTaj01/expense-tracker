@@ -1,6 +1,6 @@
 # Expense Tracker — Master Project Log
 
-Last updated: Phase 8 complete (2026-09-22)
+Last updated: Phase 10 complete (2026-09-23)
 
 Ye file project ka single source of truth hai. Isme project ka
 overview, decisions, setup steps, har phase ka record, aur
@@ -59,7 +59,7 @@ Layering rules:
 2. Money: NUMERIC(12,2) + Python Decimal. Kabhi float nahi.
    Ek user = ek currency. MVP mein multi-currency nahi.
 3. Account balance transaction ke saath same DB transaction mein
-   update hoga. Test balance recompute kar ke compare karega.
+   update hota hai. Test balance recompute kar ke compare karta hai.
    Transfers between accounts = Phase 2 (MVP mein nahi).
 4. JWT: short-lived access token. Logout = client token discard.
    Refresh tokens (httpOnly cookie, server-side revocation) = hardening
@@ -127,6 +127,9 @@ Command convention:
     |   |       |-- ea030cbc5ab6_create_alembic_version_table.py
     |   |       |-- 7673bc3416bf_create_users_table.py
     |   |       |-- 3c9938a801aa_create_accounts_and_categories_tables.py
+    |   |       |-- e78852c3c6d5_create_transactions_table.py
+    |   |       |-- fdaed5992445_create_budgets_table.py
+    |   |       |-- a157bb4870e3_create_recurring_rules_table.py
     |   |-- app/
     |   |   |-- __init__.py
     |   |   |-- main.py             FastAPI app + router include
@@ -137,21 +140,31 @@ Command convention:
     |   |   |   |-- base.py         DeclarativeBase
     |   |   |   |-- session.py      engine + SessionLocal + get_db
     |   |   |-- models/
-    |   |   |   |-- __init__.py     exports User, Account, Category
+    |   |   |   |-- __init__.py     exports User, Account, Category,
+    |   |   |   |                   Transaction, Budget, RecurringRule
     |   |   |   |-- user.py
     |   |   |   |-- account.py
     |   |   |   |-- category.py
+    |   |   |   |-- transaction.py
+    |   |   |   |-- budget.py
+    |   |   |   |-- recurring.py
     |   |   |-- schemas/
     |   |   |   |-- __init__.py
-    |   |   |   |-- user.py         UserBase, UserCreate, UserRead
-    |   |   |   |-- auth.py         Token, ChangePassword
-    |   |   |   |-- account.py      AccountBase/Create/Update/Read
-    |   |   |   |-- category.py     CategoryBase/Create/Update/Read
+    |   |   |   |-- user.py
+    |   |   |   |-- auth.py
+    |   |   |   |-- account.py
+    |   |   |   |-- category.py
+    |   |   |   |-- transaction.py
+    |   |   |   |-- budget.py
+    |   |   |   |-- recurring.py
     |   |   |-- services/
     |   |   |   |-- __init__.py
     |   |   |   |-- user_service.py
     |   |   |   |-- account_service.py
     |   |   |   |-- category_service.py (includes seed defaults)
+    |   |   |   |-- transaction_service.py (safe balance updates)
+    |   |   |   |-- budget_service.py (live usage computation)
+    |   |   |   |-- recurring_service.py (generate due transactions)
     |   |   |-- api/
     |   |   |   |-- __init__.py
     |   |   |   |-- deps.py         get_current_user
@@ -160,6 +173,9 @@ Command convention:
     |   |   |       |-- auth.py
     |   |   |       |-- accounts.py
     |   |   |       |-- categories.py
+    |   |   |       |-- transactions.py
+    |   |   |       |-- budgets.py
+    |   |   |       |-- recurring.py
     |   |   |-- ai/                 (Phase 18+)
     |   |-- tests/
     |   |   |-- __init__.py
@@ -167,6 +183,9 @@ Command convention:
     |   |   |-- test_auth.py        8 tests
     |   |   |-- test_accounts.py    8 tests
     |   |   |-- test_categories.py  9 tests
+    |   |   |-- test_transactions.py 18 tests
+    |   |   |-- test_budgets.py     15 tests
+    |   |   |-- test_recurring.py   17 tests
     |   |-- uploads/                gitignored
     |-- frontend/                   (Phase 12+)
     |-- deploy/                     (Phase 22+)
@@ -275,8 +294,7 @@ Python 3.13.15, Node 24, Git, Docker, VS Code extensions install.
 ### Phase 3 - PostgreSQL + pgvector (Done)
 - docker-compose.yml with pgvector/pgvector:0.8.6-pg18-trixie
 - Masla: PostgreSQL 18 mein data directory path badal gaya -
-  volume /var/lib/postgresql par mount karna padta hai (na ke
-  /var/lib/postgresql/data)
+  volume /var/lib/postgresql par mount karna padta hai
 - Container expense_db, port 5433:5432
 - pgvector 0.8.6 enabled aur tested
 - Persistence test: container restart ke baad data mehfooz
@@ -287,13 +305,11 @@ Python 3.13.15, Node 24, Git, Docker, VS Code extensions install.
 - FastAPI 0.115.6, uvicorn, pydantic-settings
 - app/core/config.py (Pydantic Settings from .env)
 - app/main.py with /health + CORS
-- Server: uvicorn app.main:app --reload --port 8000
 - Commit: cd9da2b
 
 ### Phase 5 - SQLAlchemy + Alembic (Done)
 - SQLAlchemy 2.0.44, Alembic 1.14.0, psycopg 3.2.4
-- app/db/base.py (DeclarativeBase)
-- app/db/session.py (engine, SessionLocal, get_db)
+- app/db/base.py, app/db/session.py
 - Alembic init
 - Masla: configparser % ko interpolation samajhta tha (encoded
   password mein %40) -> fix: env.py mein config.set_main_option
@@ -325,36 +341,71 @@ Python 3.13.15, Node 24, Git, Docker, VS Code extensions install.
 
 ### Phase 8 - Accounts aur Categories (Done)
 - app/models/account.py (accounts table: id, user_id FK CASCADE,
-  name, type, balance Numeric(12,2), currency, is_active,
-  timestamps)
+  name, type, balance Numeric(12,2), currency, is_active, timestamps)
 - app/models/category.py (categories table: id, user_id FK CASCADE,
   name, kind, is_default, timestamps, uq_category_user_name_kind)
-- app/models/user.py updated: accounts + categories relationships
-  with cascade="all, delete-orphan"
+- app/models/user.py updated: relationships with cascade
 - Migration: 3c9938a801aa_create_accounts_and_categories_tables.py
+- Schemas: AccountType/CategoryKind Literal, Create/Update/Read
+  (AccountUpdate intentionally excludes balance)
+- Services: ownership-scoped CRUD + seed_default_categories
+- Endpoints: /api/v1/accounts (5), /api/v1/categories (5)
+- 17 new tests (25 total)
+- Commit: 2e4f83f
+
+### Phase 9 - Transactions (Done)
+- app/models/transaction.py (FKs to users, accounts CASCADE,
+  categories SET NULL; amount always positive; kind determines sign)
+- Migration: e78852c3c6d5_create_transactions_table.py
+- Schemas: TransactionCreate, TransactionUpdate, TransactionRead,
+  TransactionList (paginated)
+- Service: transaction_service.py with safe balance updates:
+  - _signed_delta, _reverse_delta helpers
+  - create: insert row + apply balance in one commit
+  - update: reverse old effect + apply new + update row
+    (handles account move)
+  - delete: reverse effect + delete row
+  - recompute_account_balance (used in tests)
+- Endpoints: /api/v1/transactions (5 routes, filters, pagination)
+- 18 new tests (43 total)
+  - Includes test_balance_recomputed_matches_after_mixed_operations
+    (Section 1, decision #3 verification)
+- Masla: test_update_kind_reverses_and_applies mein test ka
+  expectation ghalat tha (1200 vs 1100) - code sahi tha
+- Commit: 30f4bb6
+
+### Phase 10 - Budgets aur Recurring (Done)
+- Models:
+  - app/models/budget.py (unique on user+category+year+month)
+  - app/models/recurring.py (frequency: daily/weekly/monthly/yearly,
+    interval, next_run_at, last_run_at, end_date, is_active)
+- Migrations:
+  - fdaed5992445_create_budgets_table.py
+  - a157bb4870e3_create_recurring_rules_table.py
 - Schemas:
-  - app/schemas/account.py (AccountType Literal,
-    AccountCreate, AccountUpdate, AccountRead)
-  - app/schemas/category.py (CategoryKind Literal,
-    CategoryCreate, CategoryUpdate, CategoryRead)
-  - NOTE: AccountUpdate intentionally excludes balance
+  - budget.py (BudgetCreate, BudgetUpdate, BudgetRead,
+    BudgetWithUsage)
+  - recurring.py (RecurringRuleCreate, Update, Read, GenerateResult)
 - Services:
-  - app/services/account_service.py (list/get/create/update/delete,
-    all ownership-scoped via user_id)
-  - app/services/category_service.py (same + DEFAULT_CATEGORIES list
-    of 12 + seed_default_categories)
-  - app/services/user_service.py: create_user now calls
-    seed_default_categories after user creation
+  - budget_service.py: CRUD + compute_usage (live from transactions)
+    + _month_bounds helper + only-expense-categories rule
+  - recurring_service.py: CRUD + generate_due_transactions (walks
+    next_run_at forward, applies balance deltas atomically,
+    respects end_date inclusive, safety cap of 1000 iterations)
 - Endpoints:
-  - app/api/v1/accounts.py (5 routes)
-  - app/api/v1/categories.py (5 routes, ?kind= filter)
-  - app/api/v1/__init__.py includes all three routers
+  - /api/v1/budgets (5 routes with usage in every response)
+  - /api/v1/recurring (5 routes + /generate)
 - Tests:
-  - tests/test_accounts.py (8 tests)
-  - tests/test_categories.py (9 tests)
-  - Ownership test: user B gets 404 on user A's account/category
-  - 25 tests total passing (8 auth + 8 accounts + 9 categories)
-- Docker was offline at one point; restart fixed it.
+  - test_budgets.py (15 tests)
+  - test_recurring.py (17 tests)
+  - 75 tests total passing
+- Masle:
+  1. Budget spent returned "0" instead of "0.00" (COALESCE returns
+     integer 0, not Decimal) -> fix: .quantize(Decimal("0.01"))
+  2. test_generate_stops_at_end_date expected 1, got 2 - test ka
+     assumption ghalat tha; end_date inclusive hai
+  3. Recurring endpoints Swagger mein nazar nahi aaye - uvicorn ka
+     Python module cache; fix: Ctrl+C + __pycache__ delete + restart
 - Commit: (pending)
 
 ---
@@ -396,6 +447,44 @@ Python 3.13.15, Node 24, Git, Docker, VS Code extensions install.
 | PATCH  | /api/v1/categories/{id}       | Update                 | Yes  |
 | DELETE | /api/v1/categories/{id}       | Delete                 | Yes  |
 
+### Transactions (all ownership-scoped)
+
+| Method | Path                          | Purpose                             | Auth |
+|--------|-------------------------------|-------------------------------------|------|
+| GET    | /api/v1/transactions          | List (filters + pagination)         | Yes  |
+| POST   | /api/v1/transactions          | Create (auto re-balances account)   | Yes  |
+| GET    | /api/v1/transactions/{id}     | Get one                             | Yes  |
+| PATCH  | /api/v1/transactions/{id}     | Update (re-balances correctly)      | Yes  |
+| DELETE | /api/v1/transactions/{id}     | Delete (reverses balance)           | Yes  |
+
+Query params for list: account_id, category_id, kind (income|expense),
+from_date, to_date, limit (1-200), offset.
+
+### Budgets (all ownership-scoped)
+
+| Method | Path                          | Purpose                             | Auth |
+|--------|-------------------------------|-------------------------------------|------|
+| GET    | /api/v1/budgets               | List (?year=, ?month=) w/ usage     | Yes  |
+| POST   | /api/v1/budgets               | Create (expense categories only)    | Yes  |
+| GET    | /api/v1/budgets/{id}          | Get one with usage                  | Yes  |
+| PATCH  | /api/v1/budgets/{id}          | Update limit                        | Yes  |
+| DELETE | /api/v1/budgets/{id}          | Delete                              | Yes  |
+
+Budget response includes: spent, remaining, percentage, is_exceeded.
+
+### Recurring (all ownership-scoped; Phase 2 scope)
+
+| Method | Path                                  | Purpose                          | Auth |
+|--------|---------------------------------------|----------------------------------|------|
+| GET    | /api/v1/recurring                     | List rules                       | Yes  |
+| POST   | /api/v1/recurring                     | Create rule                      | Yes  |
+| GET    | /api/v1/recurring/{id}                | Get one                          | Yes  |
+| PATCH  | /api/v1/recurring/{id}                | Update rule                      | Yes  |
+| DELETE | /api/v1/recurring/{id}                | Delete rule                      | Yes  |
+| POST   | /api/v1/recurring/{id}/generate       | Manually materialize due         | Yes  |
+
+No background scheduler in dev - trigger manually.
+
 Auth = Authorization: Bearer <jwt> header.
 
 ---
@@ -404,32 +493,21 @@ Auth = Authorization: Bearer <jwt> header.
 
 ### Daily workflow
 
-    # Docker start
     docker compose up -d
 
-    # Backend mein kaam
     cd backend
     .venv\Scripts\Activate.ps1
     uvicorn app.main:app --reload --port 8000    # Terminal 1
 
-    # Test / API calls (Terminal 2)
+    # Terminal 2
     curl http://localhost:8000/health
 
 ### Migrations
 
-    # Nayi migration generate karein
     alembic revision --autogenerate -m "describe change"
-
-    # Latest tak apply
     alembic upgrade head
-
-    # Ek step wapas
     alembic downgrade -1
-
-    # Current version
     alembic current
-
-    # History
     alembic history
 
 ### Database (psql)
@@ -446,21 +524,18 @@ Auth = Authorization: Bearer <jwt> header.
 
     cd backend
     .venv\Scripts\Activate.ps1
-    pytest                    # all tests
-    pytest tests/test_auth.py # one file
-    pytest -k register        # name filter
-    pytest -v                 # verbose
+    pytest
+    pytest tests/test_auth.py
+    pytest -k register
+    pytest -v
 
 ### Git workflow
 
-    # Root folder se commit
     cd D:\dev\expense-tracker
     git status
     git add .
     git commit -m "message"
     git push
-
-    # History
     git log --oneline -5
 
 ---
@@ -470,16 +545,15 @@ Auth = Authorization: Bearer <jwt> header.
 ### PostgreSQL 18 volume path error
 Symptom: Container start hota hi nahi, log kehta hai data
 /var/lib/postgresql/data mein hai (unused mount).
-Fix: docker-compose.yml mein volume mount
-postgres_data:/var/lib/postgresql (bina /data ke).
+Fix: volume mount postgres_data:/var/lib/postgresql (bina /data ke).
 
 ### configparser interpolation error
-Symptom: ValueError: invalid interpolation syntax ... at position 47
-Fix: alembic/env.py mein config.set_main_option("sqlalchemy.url", ...)
-hata dein, aur seedha create_engine(settings.DATABASE_URL, ...) use karein.
+ValueError: invalid interpolation syntax at position 47.
+Fix: alembic/env.py mein config.set_main_option hata kar seedha
+create_engine(settings.DATABASE_URL, ...) use karein.
 
 ### AttributeError: module 'app' has no attribute 'dependency_overrides'
-Symptom: pytest mein saare tests ERROR par.
+pytest mein saare tests ERROR par.
 Fix: tests/conftest.py mein:
 
     import app.models
@@ -488,41 +562,54 @@ Fix: tests/conftest.py mein:
 Aur fastapi_app.dependency_overrides[...] use karein.
 
 ### PowerShell execution policy
-Symptom: .venv\Scripts\Activate.ps1 cannot be loaded.
-Fix:
-
-    Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
+.venv\Scripts\Activate.ps1 cannot be loaded.
+Fix: Set-ExecutionPolicy -Scope Process -ExecutionPolicy RemoteSigned
 
 ### Port 5432 already in use
-Fix: .env mein POSTGRES_HOST_PORT=5433 aur
-DATABASE_URL mein localhost:5433.
+Fix: .env mein POSTGRES_HOST_PORT=5433 aur DATABASE_URL mein
+localhost:5433.
 
 ### psql mein paste nahi hota
-Fix: Right-click se paste, ya Ctrl+Shift+V. Ya command ko
-PowerShell se docker compose exec db psql ... -c "SQL" ki tarah chalayein.
+Fix: Right-click se paste, ya Ctrl+Shift+V. Ya PowerShell se
+docker compose exec db psql ... -c "SQL" chalayein.
 
 ### VS Code "Import could not be resolved"
 Fix: Ctrl+Shift+P -> Python: Select Interpreter ->
-backend\.venv\Scripts\python.exe chunein.
+backend\.venv\Scripts\python.exe.
 
-### Git push rejected - remote contains work
-Fix:
-
-    git pull origin main --no-rebase
-    # conflict resolve karein
-    git add .
-    git commit
-    git push
+### Git push rejected
+Fix: git pull origin main --no-rebase; conflict resolve; commit; push.
 
 ### Secret accidentally committed
 Action: Foran rotate karein. Git history se delete karna kaafi nahi.
-Agar repo private hai to rotate karna optional, but recommended.
 
 ### Docker Desktop is not running
-Symptom: docker compose ps fails with
-"failed to connect to the docker API at npipe://..."
+docker compose ps fails with "failed to connect to the docker API".
 Fix: Docker Desktop kholain, green whale icon ka intezar karein,
-phir docker compose up -d chalayein.
+phir docker compose up -d.
+
+### Test expectation vs code mismatch
+Agar test fail ho to dono check karein - test ya code.
+Misal: Phase 9 mein 1200 vs 1100 (test ghalat tha, code sahi).
+Misal: Phase 10 mein end_date inclusive hai (test assumption ghalat).
+
+### Budget spent returns "0" instead of "0.00"
+Symptom: Empty sum returns integer 0 via COALESCE, not Decimal.
+Fix: return Decimal(result).quantize(Decimal("0.01"))
+
+### New endpoints missing from Swagger after adding a router
+Symptom: New routes not appearing in /docs, but import test passes.
+Fix: uvicorn caches Python modules.
+
+    # 1. Ctrl+C in the uvicorn terminal
+    # 2. Clear caches:
+    Get-ChildItem -Recurse -Directory -Filter "__pycache__" | Remove-Item -Recurse -Force
+    Get-ChildItem -Recurse -File -Include "*.pyc" | Remove-Item -Force
+    # 3. Restart uvicorn
+
+Verify with:
+
+    (Invoke-RestMethod http://localhost:8000/openapi.json).paths.PSObject.Properties.Name
 
 ---
 
@@ -545,21 +632,33 @@ when you sign in" tick karein.
 
 ## 14. Notes and Gotchas
 
-- Root .env mein plain password, backend .env mein
-  URL-encoded password. Farq samajhna zaroori hai.
+- Root .env mein plain password, backend .env mein URL-encoded
+  password. Farq samajhna zaroori hai.
 - Do containers ek saath chal sakte hain host par (purana postgres-db
   port 5432 par, naya expense_db port 5433 par). Koi conflict nahi.
 - alembic revision --autogenerate ko models ka pata hona chahiye.
   alembic/env.py mein import app.models line zaroori hai.
 - pytest ke liye alag database hai (expense_tracker_test) taake
-  development data safe rahe.
-- OneDrive mein project na rakhein - node_modules aur .venv
-  sync mein problems create karte hain.
-- Har phase ke commit se pehle README ka "Progress" table update karein.
-- Account balance AccountUpdate mein intentionally nahi hai - balance
-  sirf transactions se badalta hai (Phase 9).
+  development data safe rahe. Har test ke baad saari tables
+  truncate hoti hain; session ke end mein drop hoti hain.
+- OneDrive mein project na rakhein.
+- Har phase ke commit se pehle README ka Progress table update karein.
+- Account balance AccountUpdate mein intentionally nahi hai.
+- Transaction amount hamesha positive. Sign kind se aata hai.
+- Account balance transaction ke saath same DB transaction mein
+  update hota hai.
+- Category delete karne par transactions zinda rehte hain
+  (category_id NULL ho jata hai).
+- Account delete karne par uske transactions bhi delete ho jate hain.
 - Har naye user ko 12 default categories milti hain (3 income, 9
-  expense) - seed_default_categories function se.
+  expense).
+- Budget usage store nahi hoti - har baar transactions se live
+  compute hoti hai.
+- Budget sirf expense categories par lagta hai.
+- Recurring rules generate hone par next_run_at aage badhta hai;
+  end_date inclusive hai.
+- Recurring safety cap: ek generate call 1000 occurrences se
+  zyada nahi banata (infinite loop se bachne ke liye).
 
 ---
 
@@ -567,8 +666,6 @@ when you sign in" tick karein.
 
 | Phase | Scope                                    | Est. days |
 |-------|------------------------------------------|-----------|
-| 9     | Transactions + safe balance updates      | 3         |
-| 10    | Budgets (MVP) + recurring (Phase 2)      | 2         |
 | 11    | Dashboard backend (summary, breakdown)   | 1         |
 | 12-15 | React app + all screens (MVP checkpoint) | 5         |
 | 16-17 | Analytics, PDF/CSV, uploads, notifs      | 2         |

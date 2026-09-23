@@ -133,6 +133,44 @@ Create the test database once:
 | PATCH  | /api/v1/categories/{id}       | Update category               |
 | DELETE | /api/v1/categories/{id}       | Delete category               |
 
+### Transactions (all require auth)
+
+| Method | Path                          | Purpose                                       |
+|--------|-------------------------------|-----------------------------------------------|
+| GET    | /api/v1/transactions          | List with filters + pagination                |
+| POST   | /api/v1/transactions          | Create (auto re-balances account)             |
+| GET    | /api/v1/transactions/{id}     | Get one                                       |
+| PATCH  | /api/v1/transactions/{id}     | Update (re-balances correctly)                |
+| DELETE | /api/v1/transactions/{id}     | Delete (reverses balance)                     |
+
+Query params for list: `account_id`, `category_id`, `kind` (income|expense),
+`from_date`, `to_date`, `limit` (1-200), `offset`.
+
+### Budgets (all require auth)
+
+| Method | Path                          | Purpose                                       |
+|--------|-------------------------------|-----------------------------------------------|
+| GET    | /api/v1/budgets               | List (?year=, ?month=) with live usage        |
+| POST   | /api/v1/budgets               | Create (expense categories only)              |
+| GET    | /api/v1/budgets/{id}          | Get one with usage                            |
+| PATCH  | /api/v1/budgets/{id}          | Update limit                                  |
+| DELETE | /api/v1/budgets/{id}          | Delete                                        |
+
+Budget response includes: `spent`, `remaining`, `percentage`, `is_exceeded`.
+
+### Recurring (all require auth; Phase 2 scope)
+
+| Method | Path                                  | Purpose                             |
+|--------|---------------------------------------|-------------------------------------|
+| GET    | /api/v1/recurring                     | List rules                          |
+| POST   | /api/v1/recurring                     | Create rule                         |
+| GET    | /api/v1/recurring/{id}                | Get one                             |
+| PATCH  | /api/v1/recurring/{id}                | Update rule                         |
+| DELETE | /api/v1/recurring/{id}                | Delete rule                         |
+| POST   | /api/v1/recurring/{id}/generate       | Manually materialize due occurrences|
+
+No background scheduler in dev — trigger manually (Section 1, decision #7).
+
 ### Meta
 
 | Method | Path                          | Purpose                |
@@ -152,9 +190,9 @@ Create the test database once:
 | 6     | User model + users table          | Done    |
 | 7     | Auth (JWT + Argon2) + pytest      | Done    |
 | 8     | Accounts and categories           | Done    |
-| 9     | Transactions                      | Next    |
-| 10    | Budgets and recurring             |         |
-| 11    | Dashboard API                     |         |
+| 9     | Transactions + safe balance       | Done    |
+| 10    | Budgets and recurring             | Done    |
+| 11    | Dashboard API                     | Next    |
 | 12-15 | React app (MVP checkpoint)        |         |
 | 16-17 | Analytics, uploads, notifications |         |
 | 18-20 | AI: RAG, chat, agent tools        |         |
@@ -176,3 +214,12 @@ decisions, troubleshooting, and command reference.
   because port 5432 is already in use on the host machine.
 - Every new user automatically gets 12 default categories
   (3 income, 9 expense).
+- Transaction `amount` is always positive; sign comes from `kind`.
+- Account balance is updated in the same DB transaction as the
+  transaction row. A dedicated test recomputes balance from the
+  transactions and verifies it matches.
+- Budget usage is computed live from transactions (not stored).
+- Recurring rules are generated on demand via `/generate` endpoint;
+  end_date is inclusive.
+- Tests use a separate database (`expense_tracker_test`); tables are
+  truncated between tests, so test data never touches dev data.

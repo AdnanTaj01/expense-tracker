@@ -5,11 +5,24 @@ from app.schemas.account import (
     AccountUpdate,
 )
 from app.schemas.auth import ChangePassword, Token
+from app.schemas.budget import (
+    BudgetCreate,
+    BudgetRead,
+    BudgetUpdate,
+    BudgetWithUsage,
+)
 from app.schemas.category import (
     CategoryCreate,
     CategoryKind,
     CategoryRead,
     CategoryUpdate,
+)
+from app.schemas.recurring import (
+    GenerateResult,
+    RecurringFrequency,
+    RecurringRuleCreate,
+    RecurringRuleRead,
+    RecurringRuleUpdate,
 )
 from app.schemas.transaction import (
     TransactionCreate,
@@ -25,11 +38,20 @@ __all__ = [
     "AccountRead",
     "AccountType",
     "AccountUpdate",
+    "BudgetCreate",
+    "BudgetRead",
+    "BudgetUpdate",
+    "BudgetWithUsage",
     "CategoryCreate",
     "CategoryKind",
     "CategoryRead",
     "CategoryUpdate",
     "ChangePassword",
+    "GenerateResult",
+    "RecurringFrequency",
+    "RecurringRuleCreate",
+    "RecurringRuleRead",
+    "RecurringRuleUpdate",
     "Token",
     "TransactionCreate",
     "TransactionKind",
