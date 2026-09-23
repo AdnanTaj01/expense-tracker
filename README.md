@@ -8,12 +8,12 @@ the source of truth.
 ## Stack
 
 - **Frontend:** React + TypeScript + Tailwind CSS (Vite) — Phase 12+
-- **Backend:** Python 3.13 + FastAPI
+- **Backend:** Python 3.13 + FastAPI ✅ (complete)
 - **Database:** PostgreSQL 18 + pgvector (Docker)
 - **ORM / migrations:** SQLAlchemy 2.x (sync) + Alembic + psycopg 3
 - **Auth:** JWT (PyJWT) + Argon2 (pwdlib)
 - **AI:** LLM provider TBD + RAG via pgvector — Phase 18+
-- **Testing:** pytest (backend) — Phase 7+
+- **Testing:** pytest (backend) — 90 tests passing
 
 ## Architecture rule
 
@@ -45,7 +45,7 @@ the source of truth.
 ## Prerequisites
 
 - Python 3.13.x
-- Node.js 24 LTS
+- Node.js 24 LTS (Phase 12+)
 - Docker Desktop
 - Git
 
@@ -102,7 +102,13 @@ Create the test database once:
 
     docker compose exec db psql -U expense_user -d expense_tracker -c "CREATE DATABASE expense_tracker_test OWNER expense_user;"
 
-## API endpoints (current)
+## API endpoints
+
+### Meta
+
+| Method | Path        | Purpose         |
+|--------|-------------|-----------------|
+| GET    | /health     | Liveness check  |
 
 ### Auth
 
@@ -113,7 +119,7 @@ Create the test database once:
 | GET    | /api/v1/auth/me               | Current user profile   |
 | POST   | /api/v1/auth/change-password  | Change password        |
 
-### Accounts (all require auth)
+### Accounts
 
 | Method | Path                          | Purpose                |
 |--------|-------------------------------|------------------------|
@@ -123,7 +129,7 @@ Create the test database once:
 | PATCH  | /api/v1/accounts/{id}         | Update account         |
 | DELETE | /api/v1/accounts/{id}         | Delete account         |
 
-### Categories (all require auth)
+### Categories
 
 | Method | Path                          | Purpose                       |
 |--------|-------------------------------|-------------------------------|
@@ -133,7 +139,7 @@ Create the test database once:
 | PATCH  | /api/v1/categories/{id}       | Update category               |
 | DELETE | /api/v1/categories/{id}       | Delete category               |
 
-### Transactions (all require auth)
+### Transactions
 
 | Method | Path                          | Purpose                                       |
 |--------|-------------------------------|-----------------------------------------------|
@@ -143,10 +149,10 @@ Create the test database once:
 | PATCH  | /api/v1/transactions/{id}     | Update (re-balances correctly)                |
 | DELETE | /api/v1/transactions/{id}     | Delete (reverses balance)                     |
 
-Query params for list: `account_id`, `category_id`, `kind` (income|expense),
-`from_date`, `to_date`, `limit` (1-200), `offset`.
+Query params: `account_id`, `category_id`, `kind`, `from_date`, `to_date`,
+`limit` (1-200), `offset`.
 
-### Budgets (all require auth)
+### Budgets
 
 | Method | Path                          | Purpose                                       |
 |--------|-------------------------------|-----------------------------------------------|
@@ -156,9 +162,9 @@ Query params for list: `account_id`, `category_id`, `kind` (income|expense),
 | PATCH  | /api/v1/budgets/{id}          | Update limit                                  |
 | DELETE | /api/v1/budgets/{id}          | Delete                                        |
 
-Budget response includes: `spent`, `remaining`, `percentage`, `is_exceeded`.
+Response includes: `spent`, `remaining`, `percentage`, `is_exceeded`.
 
-### Recurring (all require auth; Phase 2 scope)
+### Recurring (Phase 2 scope)
 
 | Method | Path                                  | Purpose                             |
 |--------|---------------------------------------|-------------------------------------|
@@ -169,13 +175,19 @@ Budget response includes: `spent`, `remaining`, `percentage`, `is_exceeded`.
 | DELETE | /api/v1/recurring/{id}                | Delete rule                         |
 | POST   | /api/v1/recurring/{id}/generate       | Manually materialize due occurrences|
 
-No background scheduler in dev — trigger manually (Section 1, decision #7).
+No background scheduler in dev — trigger manually.
 
-### Meta
+### Dashboard
 
-| Method | Path                          | Purpose                |
-|--------|-------------------------------|------------------------|
-| GET    | /health                       | Liveness check         |
+| Method | Path                                  | Purpose                                       |
+|--------|---------------------------------------|-----------------------------------------------|
+| GET    | /api/v1/dashboard/summary             | Total balance + month income/expense/net      |
+| GET    | /api/v1/dashboard/by-category         | Expense breakdown by category (?year, ?month) |
+| GET    | /api/v1/dashboard/trend               | Last N months income vs expense               |
+| GET    | /api/v1/dashboard/recent              | Recent transactions (limit)                   |
+| GET    | /api/v1/dashboard/overview            | All of the above in one call                  |
+
+All endpoints require auth: `Authorization: Bearer <jwt>`.
 
 ## Progress
 
@@ -192,13 +204,15 @@ No background scheduler in dev — trigger manually (Section 1, decision #7).
 | 8     | Accounts and categories           | Done    |
 | 9     | Transactions + safe balance       | Done    |
 | 10    | Budgets and recurring             | Done    |
-| 11    | Dashboard API                     | Next    |
-| 12-15 | React app (MVP checkpoint)        |         |
+| 11    | Dashboard API                     | Done ✅ |
+| 12-15 | React app (MVP checkpoint)        | Next    |
 | 16-17 | Analytics, uploads, notifications |         |
 | 18-20 | AI: RAG, chat, agent tools        |         |
 | 21    | Testing and security sweep        |         |
 | 22    | Dockerization and deployment      |         |
 | 23    | Final QA and docs                 |         |
+
+**Backend MVP complete.** 90 tests passing.
 
 See `docs/PROJECT_LOG.md` for the full phase-by-phase record,
 decisions, troubleshooting, and command reference.
@@ -210,8 +224,7 @@ decisions, troubleshooting, and command reference.
   `float`.
 - JWT is short-lived; logout means the client discards the token.
   Server-side revocation (refresh tokens) is on the hardening list.
-- Docker container is `expense_db` on host port **5433** (not 5432)
-  because port 5432 is already in use on the host machine.
+- Docker container is `expense_db` on host port **5433** (not 5432).
 - Every new user automatically gets 12 default categories
   (3 income, 9 expense).
 - Transaction `amount` is always positive; sign comes from `kind`.
@@ -219,7 +232,6 @@ decisions, troubleshooting, and command reference.
   transaction row. A dedicated test recomputes balance from the
   transactions and verifies it matches.
 - Budget usage is computed live from transactions (not stored).
-- Recurring rules are generated on demand via `/generate` endpoint;
-  end_date is inclusive.
+- Recurring rules are generated on demand; `end_date` is inclusive.
 - Tests use a separate database (`expense_tracker_test`); tables are
   truncated between tests, so test data never touches dev data.

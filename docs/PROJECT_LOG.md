@@ -1,6 +1,6 @@
 # Expense Tracker — Master Project Log
 
-Last updated: Phase 10 complete (2026-09-23)
+Last updated: Phase 11 complete (2026-09-23)
 
 Ye file project ka single source of truth hai. Isme project ka
 overview, decisions, setup steps, har phase ka record, aur
@@ -23,6 +23,8 @@ Core idea:
 Rule: App AI ke bina bhi chalti hai. LLM sirf explain karta hai,
 woh source of truth nahi hai.
 
+Backend MVP (Phases 0-11) complete. 90 tests passing.
+
 ---
 
 ## 2. Tech Stack
@@ -30,7 +32,7 @@ woh source of truth nahi hai.
 | Layer       | Technology                                       |
 |-------------|--------------------------------------------------|
 | Frontend    | React + TypeScript + Tailwind (Vite) - Phase 12+ |
-| Backend     | Python 3.13 + FastAPI + Uvicorn                  |
+| Backend     | Python 3.13 + FastAPI + Uvicorn (complete)       |
 | Database    | PostgreSQL 18 + pgvector (Docker)                |
 | ORM         | SQLAlchemy 2.x (sync) + psycopg 3                |
 | Migrations  | Alembic                                          |
@@ -157,6 +159,7 @@ Command convention:
     |   |   |   |-- transaction.py
     |   |   |   |-- budget.py
     |   |   |   |-- recurring.py
+    |   |   |   |-- dashboard.py
     |   |   |-- services/
     |   |   |   |-- __init__.py
     |   |   |   |-- user_service.py
@@ -165,6 +168,7 @@ Command convention:
     |   |   |   |-- transaction_service.py (safe balance updates)
     |   |   |   |-- budget_service.py (live usage computation)
     |   |   |   |-- recurring_service.py (generate due transactions)
+    |   |   |   |-- dashboard_service.py (aggregation queries)
     |   |   |-- api/
     |   |   |   |-- __init__.py
     |   |   |   |-- deps.py         get_current_user
@@ -176,6 +180,7 @@ Command convention:
     |   |   |       |-- transactions.py
     |   |   |       |-- budgets.py
     |   |   |       |-- recurring.py
+    |   |   |       |-- dashboard.py
     |   |   |-- ai/                 (Phase 18+)
     |   |-- tests/
     |   |   |-- __init__.py
@@ -186,6 +191,7 @@ Command convention:
     |   |   |-- test_transactions.py 18 tests
     |   |   |-- test_budgets.py     15 tests
     |   |   |-- test_recurring.py   17 tests
+    |   |   |-- test_dashboard.py   15 tests
     |   |-- uploads/                gitignored
     |-- frontend/                   (Phase 12+)
     |-- deploy/                     (Phase 22+)
@@ -303,123 +309,104 @@ Python 3.13.15, Node 24, Git, Docker, VS Code extensions install.
 ### Phase 4 - FastAPI Foundation (Done)
 - backend/.venv (Python 3.13)
 - FastAPI 0.115.6, uvicorn, pydantic-settings
-- app/core/config.py (Pydantic Settings from .env)
-- app/main.py with /health + CORS
+- app/core/config.py, app/main.py with /health + CORS
 - Commit: cd9da2b
 
 ### Phase 5 - SQLAlchemy + Alembic (Done)
 - SQLAlchemy 2.0.44, Alembic 1.14.0, psycopg 3.2.4
 - app/db/base.py, app/db/session.py
-- Alembic init
-- Masla: configparser % ko interpolation samajhta tha (encoded
-  password mein %40) -> fix: env.py mein config.set_main_option
-  hata kar seedha create_engine(settings.DATABASE_URL, ...)
+- Masla: configparser % ko interpolation samajhta tha
+  -> fix: create_engine(settings.DATABASE_URL, ...) in env.py
 - First migration: alembic_version table
 - Commit: f23b7bb
 
 ### Phase 6 - User Model (Done)
-- app/models/user.py (users table)
-- app/schemas/user.py (UserBase, UserCreate, UserRead)
+- app/models/user.py
+- app/schemas/user.py
 - Migration: 7673bc3416bf_create_users_table.py
-- Email uniqueness constraint verified
 - Commit: fdf0b8a
 
 ### Phase 7 - Auth + Security (Done)
 - PyJWT 2.10.1, pwdlib 0.2.1 (Argon2), python-multipart 0.0.20
 - pytest 8.3.4, httpx 0.28.1
-- app/core/security.py - hash_password, verify_password,
-  create_access_token, decode_access_token
-- app/api/deps.py - get_current_user (Bearer token)
-- app/schemas/auth.py - Token, ChangePassword
-- app/services/user_service.py
+- app/core/security.py, app/api/deps.py
 - app/api/v1/auth.py - register/login/me/change-password
-- pytest.ini, tests/conftest.py, tests/test_auth.py
 - 8 tests passing
 - Masla: import app.models ne app naam overwrite kar diya
   -> fix: from app.main import app as fastapi_app in conftest
 - Commit: f254fb2
 
 ### Phase 8 - Accounts aur Categories (Done)
-- app/models/account.py (accounts table: id, user_id FK CASCADE,
-  name, type, balance Numeric(12,2), currency, is_active, timestamps)
-- app/models/category.py (categories table: id, user_id FK CASCADE,
-  name, kind, is_default, timestamps, uq_category_user_name_kind)
-- app/models/user.py updated: relationships with cascade
+- Models: account.py, category.py (FK to users, CASCADE)
 - Migration: 3c9938a801aa_create_accounts_and_categories_tables.py
-- Schemas: AccountType/CategoryKind Literal, Create/Update/Read
-  (AccountUpdate intentionally excludes balance)
-- Services: ownership-scoped CRUD + seed_default_categories
-- Endpoints: /api/v1/accounts (5), /api/v1/categories (5)
+- Schemas with Literal type validation
+- Ownership-scoped services
+- Endpoints: /api/v1/accounts, /api/v1/categories
+- Seed 12 default categories on user registration
 - 17 new tests (25 total)
 - Commit: 2e4f83f
 
 ### Phase 9 - Transactions (Done)
-- app/models/transaction.py (FKs to users, accounts CASCADE,
-  categories SET NULL; amount always positive; kind determines sign)
+- Model: transaction.py (FKs to users, accounts CASCADE,
+  categories SET NULL, amount always positive, kind determines sign)
 - Migration: e78852c3c6d5_create_transactions_table.py
 - Schemas: TransactionCreate, TransactionUpdate, TransactionRead,
   TransactionList (paginated)
-- Service: transaction_service.py with safe balance updates:
+- Service: transaction_service.py with safe balance updates
   - _signed_delta, _reverse_delta helpers
   - create: insert row + apply balance in one commit
   - update: reverse old effect + apply new + update row
-    (handles account move)
   - delete: reverse effect + delete row
   - recompute_account_balance (used in tests)
-- Endpoints: /api/v1/transactions (5 routes, filters, pagination)
+- Endpoints: /api/v1/transactions (5 routes with filters + pagination)
 - 18 new tests (43 total)
-  - Includes test_balance_recomputed_matches_after_mixed_operations
-    (Section 1, decision #3 verification)
 - Masla: test_update_kind_reverses_and_applies mein test ka
-  expectation ghalat tha (1200 vs 1100) - code sahi tha
+  expectation ghalat tha (1200 vs 1100)
 - Commit: 30f4bb6
 
 ### Phase 10 - Budgets aur Recurring (Done)
-- Models:
-  - app/models/budget.py (unique on user+category+year+month)
-  - app/models/recurring.py (frequency: daily/weekly/monthly/yearly,
-    interval, next_run_at, last_run_at, end_date, is_active)
-- Migrations:
-  - fdaed5992445_create_budgets_table.py
-  - a157bb4870e3_create_recurring_rules_table.py
-- Schemas:
-  - budget.py (BudgetCreate, BudgetUpdate, BudgetRead,
-    BudgetWithUsage)
-  - recurring.py (RecurringRuleCreate, Update, Read, GenerateResult)
-- Services:
-  - budget_service.py: CRUD + compute_usage (live from transactions)
-    + _month_bounds helper + only-expense-categories rule
-  - recurring_service.py: CRUD + generate_due_transactions (walks
-    next_run_at forward, applies balance deltas atomically,
-    respects end_date inclusive, safety cap of 1000 iterations)
-- Endpoints:
-  - /api/v1/budgets (5 routes with usage in every response)
-  - /api/v1/recurring (5 routes + /generate)
-- Tests:
-  - test_budgets.py (15 tests)
-  - test_recurring.py (17 tests)
-  - 75 tests total passing
-- Masle:
-  1. Budget spent returned "0" instead of "0.00" (COALESCE returns
-     integer 0, not Decimal) -> fix: .quantize(Decimal("0.01"))
-  2. test_generate_stops_at_end_date expected 1, got 2 - test ka
-     assumption ghalat tha; end_date inclusive hai
-  3. Recurring endpoints Swagger mein nazar nahi aaye - uvicorn ka
-     Python module cache; fix: Ctrl+C + __pycache__ delete + restart
+- Models: budget.py, recurring.py
+- Migrations: fdaed5992445 (budgets),
+  a157bb4870e3 (recurring_rules)
+- Schemas: Budget*, RecurringRule*, GenerateResult
+- Services: budget_service (live usage), recurring_service
+  (generate_due_transactions, end_date inclusive, safety cap 1000)
+- Endpoints: /api/v1/budgets (5), /api/v1/recurring (5 + /generate)
+- 32 new tests (75 total)
+- Masle: budget spent "0" vs "0.00" -> quantize fix;
+  end_date inclusive (test assumption ghalat);
+  uvicorn module cache hid new endpoints
+- Commit: 3273013
+
+### Phase 11 - Dashboard API (Done)
+- Koi model/migration nahi
+- Schemas: dashboard.py (DashboardSummary, CategoryBreakdownItem,
+  TrendPoint, DashboardOverview)
+- Service: dashboard_service.py (read-only aggregations)
+  - get_summary: total_balance + month income/expense/net
+  - get_category_breakdown: top expense categories w/ % share
+  - get_trend: last N months income vs expense (oldest first)
+  - get_recent_transactions: latest N ordered by occurred_at desc
+  - get_overview: everything in one call
+  - _month_bounds and _prev_months helpers
+  - left join category -> "Uncategorized" when null
+  - all sums quantized to 2 decimal places
+- Endpoints: /api/v1/dashboard (5 routes)
+- 15 new tests (90 total)
 - Commit: (pending)
+
+**Backend MVP complete at Phase 11.** 90 tests passing.
 
 ---
 
 ## 10. API Endpoints (current)
 
 ### Meta
-
 | Method | Path        | Purpose         | Auth |
 |--------|-------------|-----------------|------|
 | GET    | /health     | Liveness check  | No   |
 
 ### Auth
-
 | Method | Path                          | Purpose                | Auth |
 |--------|-------------------------------|------------------------|------|
 | POST   | /api/v1/auth/register         | Create new user        | No   |
@@ -427,8 +414,7 @@ Python 3.13.15, Node 24, Git, Docker, VS Code extensions install.
 | GET    | /api/v1/auth/me               | Current user profile   | Yes  |
 | POST   | /api/v1/auth/change-password  | Change password        | Yes  |
 
-### Accounts (all ownership-scoped)
-
+### Accounts (ownership-scoped)
 | Method | Path                          | Purpose                | Auth |
 |--------|-------------------------------|------------------------|------|
 | GET    | /api/v1/accounts              | List (?only_active=true) | Yes |
@@ -437,18 +423,16 @@ Python 3.13.15, Node 24, Git, Docker, VS Code extensions install.
 | PATCH  | /api/v1/accounts/{id}         | Update (no balance)    | Yes  |
 | DELETE | /api/v1/accounts/{id}         | Delete                 | Yes  |
 
-### Categories (all ownership-scoped)
-
+### Categories (ownership-scoped)
 | Method | Path                          | Purpose                | Auth |
 |--------|-------------------------------|------------------------|------|
-| GET    | /api/v1/categories            | List (?kind=income/expense) | Yes |
+| GET    | /api/v1/categories            | List (?kind=)          | Yes  |
 | POST   | /api/v1/categories            | Create                 | Yes  |
 | GET    | /api/v1/categories/{id}       | Get one                | Yes  |
 | PATCH  | /api/v1/categories/{id}       | Update                 | Yes  |
 | DELETE | /api/v1/categories/{id}       | Delete                 | Yes  |
 
-### Transactions (all ownership-scoped)
-
+### Transactions (ownership-scoped)
 | Method | Path                          | Purpose                             | Auth |
 |--------|-------------------------------|-------------------------------------|------|
 | GET    | /api/v1/transactions          | List (filters + pagination)         | Yes  |
@@ -457,11 +441,10 @@ Python 3.13.15, Node 24, Git, Docker, VS Code extensions install.
 | PATCH  | /api/v1/transactions/{id}     | Update (re-balances correctly)      | Yes  |
 | DELETE | /api/v1/transactions/{id}     | Delete (reverses balance)           | Yes  |
 
-Query params for list: account_id, category_id, kind (income|expense),
-from_date, to_date, limit (1-200), offset.
+Query params for list: account_id, category_id, kind, from_date,
+to_date, limit (1-200), offset.
 
-### Budgets (all ownership-scoped)
-
+### Budgets (ownership-scoped)
 | Method | Path                          | Purpose                             | Auth |
 |--------|-------------------------------|-------------------------------------|------|
 | GET    | /api/v1/budgets               | List (?year=, ?month=) w/ usage     | Yes  |
@@ -470,10 +453,9 @@ from_date, to_date, limit (1-200), offset.
 | PATCH  | /api/v1/budgets/{id}          | Update limit                        | Yes  |
 | DELETE | /api/v1/budgets/{id}          | Delete                              | Yes  |
 
-Budget response includes: spent, remaining, percentage, is_exceeded.
+Response includes: spent, remaining, percentage, is_exceeded.
 
-### Recurring (all ownership-scoped; Phase 2 scope)
-
+### Recurring (ownership-scoped; Phase 2 scope)
 | Method | Path                                  | Purpose                          | Auth |
 |--------|---------------------------------------|----------------------------------|------|
 | GET    | /api/v1/recurring                     | List rules                       | Yes  |
@@ -483,7 +465,14 @@ Budget response includes: spent, remaining, percentage, is_exceeded.
 | DELETE | /api/v1/recurring/{id}                | Delete rule                      | Yes  |
 | POST   | /api/v1/recurring/{id}/generate       | Manually materialize due         | Yes  |
 
-No background scheduler in dev - trigger manually.
+### Dashboard (read-only, ownership-scoped)
+| Method | Path                                  | Purpose                                 | Auth |
+|--------|---------------------------------------|-----------------------------------------|------|
+| GET    | /api/v1/dashboard/summary             | Total balance + month income/expense/net| Yes  |
+| GET    | /api/v1/dashboard/by-category         | Expense breakdown by category           | Yes  |
+| GET    | /api/v1/dashboard/trend               | Last N months income vs expense         | Yes  |
+| GET    | /api/v1/dashboard/recent              | Recent transactions                     | Yes  |
+| GET    | /api/v1/dashboard/overview            | All of the above in one call            | Yes  |
 
 Auth = Authorization: Bearer <jwt> header.
 
@@ -524,10 +513,10 @@ Auth = Authorization: Bearer <jwt> header.
 
     cd backend
     .venv\Scripts\Activate.ps1
-    pytest
-    pytest tests/test_auth.py
-    pytest -k register
-    pytest -v
+    pytest                    # all tests (90)
+    pytest tests/test_auth.py # one file
+    pytest -k register        # name filter
+    pytest -v                 # verbose
 
 ### Git workflow
 
@@ -590,8 +579,8 @@ phir docker compose up -d.
 
 ### Test expectation vs code mismatch
 Agar test fail ho to dono check karein - test ya code.
-Misal: Phase 9 mein 1200 vs 1100 (test ghalat tha, code sahi).
-Misal: Phase 10 mein end_date inclusive hai (test assumption ghalat).
+Misal: Phase 9 - 1200 vs 1100 (test ghalat tha).
+Misal: Phase 10 - end_date inclusive (test assumption ghalat).
 
 ### Budget spent returns "0" instead of "0.00"
 Symptom: Empty sum returns integer 0 via COALESCE, not Decimal.
@@ -658,7 +647,12 @@ when you sign in" tick karein.
 - Recurring rules generate hone par next_run_at aage badhta hai;
   end_date inclusive hai.
 - Recurring safety cap: ek generate call 1000 occurrences se
-  zyada nahi banata (infinite loop se bachne ke liye).
+  zyada nahi banata.
+- Dashboard queries read-only hain; koi model ya migration nahi.
+- Dashboard aggregation mein har sum quantize hoti hai 2 decimal
+  places par.
+- Dashboard mein null category ko "Uncategorized" naam se show karte
+  hain.
 
 ---
 
@@ -666,7 +660,6 @@ when you sign in" tick karein.
 
 | Phase | Scope                                    | Est. days |
 |-------|------------------------------------------|-----------|
-| 11    | Dashboard backend (summary, breakdown)   | 1         |
 | 12-15 | React app + all screens (MVP checkpoint) | 5         |
 | 16-17 | Analytics, PDF/CSV, uploads, notifs      | 2         |
 | 18-20 | RAG, AI chat, agent tools                | 4         |
@@ -676,6 +669,8 @@ when you sign in" tick karein.
 
 MVP checkpoint: Phase 15 ke end mein. Wahan tak finance app
 AI ke bina poora kaam karta hoga, aur Git mein tag hoga.
+
+Backend MVP poora ho gaya hai Phase 11 ke saath (90 tests).
 
 ---
 

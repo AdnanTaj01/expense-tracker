@@ -17,6 +17,12 @@ from app.schemas.category import (
     CategoryRead,
     CategoryUpdate,
 )
+from app.schemas.dashboard import (
+    CategoryBreakdownItem,
+    DashboardOverview,
+    DashboardSummary,
+    TrendPoint,
+)
 from app.schemas.recurring import (
     GenerateResult,
     RecurringFrequency,
@@ -42,11 +48,14 @@ __all__ = [
     "BudgetRead",
     "BudgetUpdate",
     "BudgetWithUsage",
+    "CategoryBreakdownItem",
     "CategoryCreate",
     "CategoryKind",
     "CategoryRead",
     "CategoryUpdate",
     "ChangePassword",
+    "DashboardOverview",
+    "DashboardSummary",
     "GenerateResult",
     "RecurringFrequency",
     "RecurringRuleCreate",
@@ -58,6 +67,7 @@ __all__ = [
     "TransactionList",
     "TransactionRead",
     "TransactionUpdate",
+    "TrendPoint",
     "UserBase",
     "UserCreate",
     "UserRead",
