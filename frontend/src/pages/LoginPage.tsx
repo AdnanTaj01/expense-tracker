@@ -1,4 +1,4 @@
-import { useState, type FormEvent } from "react";
+import { useEffect, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { ApiError } from "../api/client";
@@ -9,7 +9,7 @@ interface LocationState {
 }
 
 function LoginPage() {
-  const { login } = useAuth();
+  const { login, sessionExpired, clearSessionExpired } = useAuth();
   const navigate = useNavigate();
   const location = useLocation();
   const state = location.state as LocationState | null;
@@ -18,6 +18,13 @@ function LoginPage() {
   const [password, setPassword] = useState("");
   const [error, setError] = useState<string | null>(null);
   const [submitting, setSubmitting] = useState(false);
+
+  // Clear the "session expired" flag when leaving the page.
+  useEffect(() => {
+    return () => {
+      clearSessionExpired();
+    };
+  }, [clearSessionExpired]);
 
   async function onSubmit(e: FormEvent) {
     e.preventDefault();
@@ -45,6 +52,12 @@ function LoginPage() {
         <p className="text-sm text-slate-500 mb-6">
           Enter your credentials to access your dashboard.
         </p>
+
+        {sessionExpired && (
+          <div className="mb-4 text-sm text-amber-800 bg-amber-50 border border-amber-200 rounded-md px-3 py-2">
+            Your session expired. Please sign in again.
+          </div>
+        )}
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div>

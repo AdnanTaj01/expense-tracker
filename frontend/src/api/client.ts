@@ -3,6 +3,14 @@ const API_BASE_URL =
 
 const TOKEN_KEY = "access_token";
 
+// Registered by AuthContext. Fires once whenever an authenticated
+// request returns 401 (expired or invalid token).
+let onUnauthorized: (() => void) | null = null;
+
+export function setOnUnauthorized(cb: (() => void) | null): void {
+  onUnauthorized = cb;
+}
+
 export function getToken(): string | null {
   return localStorage.getItem(TOKEN_KEY);
 }
@@ -63,7 +71,13 @@ async function request<T>(path: string, options: RequestOptions = {}): Promise<T
     body: bodyToSend,
   });
 
-  // 204 No Content — no body
+  // 401 on an authenticated request → session expired.
+  // Fire the callback so AuthContext can clear state and redirect.
+  if (response.status === 401 && auth && onUnauthorized) {
+    onUnauthorized();
+  }
+
+  // 204 No Content — no body.
   if (response.status === 204) {
     if (!response.ok) {
       throw new ApiError(response.status, "Request failed");

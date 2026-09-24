@@ -5,6 +5,7 @@ import ProtectedRoute from "./components/ProtectedRoute";
 import AccountsPage from "./pages/AccountsPage";
 import BudgetsPage from "./pages/BudgetsPage";
 import CategoriesPage from "./pages/CategoriesPage";
+import ChangePasswordPage from "./pages/ChangePasswordPage";
 import DashboardPage from "./pages/DashboardPage";
 import LoginPage from "./pages/LoginPage";
 import NotFoundPage from "./pages/NotFoundPage";
@@ -15,11 +16,9 @@ function App() {
   return (
     <BrowserRouter>
       <Routes>
-        {/* Public routes */}
         <Route path="/login" element={<LoginPage />} />
         <Route path="/register" element={<RegisterPage />} />
 
-        {/* Protected routes (require auth) */}
         <Route element={<ProtectedRoute />}>
           <Route element={<Layout />}>
             <Route path="/dashboard" element={<DashboardPage />} />
@@ -27,13 +26,14 @@ function App() {
             <Route path="/accounts" element={<AccountsPage />} />
             <Route path="/categories" element={<CategoriesPage />} />
             <Route path="/budgets" element={<BudgetsPage />} />
+            <Route
+              path="/change-password"
+              element={<ChangePasswordPage />}
+            />
           </Route>
         </Route>
 
-        {/* Root redirect */}
         <Route path="/" element={<Navigate to="/dashboard" replace />} />
-
-        {/* 404 */}
         <Route path="*" element={<NotFoundPage />} />
       </Routes>
     </BrowserRouter>

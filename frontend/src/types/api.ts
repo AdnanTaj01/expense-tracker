@@ -19,6 +19,11 @@ export interface UserCreate {
   currency?: string;
 }
 
+export interface ChangePasswordPayload {
+  current_password: string;
+  new_password: string;
+}
+
 export interface Account {
   id: number;
   user_id: number;

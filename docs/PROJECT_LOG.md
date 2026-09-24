@@ -1,6 +1,6 @@
 # Expense Tracker — Master Project Log
 
-Last updated: Phase 12 complete (2026-09-23)
+Last updated: Phase 13 complete (2026-09-24)
 
 Ye file project ka single source of truth hai. Isme project ka
 overview, decisions, setup steps, har phase ka record, aur
@@ -23,8 +23,8 @@ Core idea:
 Rule: App AI ke bina bhi chalti hai. LLM sirf explain karta hai,
 woh source of truth nahi hai.
 
-Backend MVP (Phases 0-11) complete. Frontend foundation (Phase 12)
-complete. 90 backend tests + 27 frontend tests, sab pass.
+Backend MVP (Phases 0-11) complete. Frontend auth (Phases 12-13)
+complete. 90 backend tests + 29 frontend tests, sab pass.
 
 ---
 
@@ -166,7 +166,7 @@ Command convention:
     |   |   |-- context/ (AuthContext.tsx + tests)
     |   |   |-- pages/ (Login, Register, Dashboard, Accounts,
     |   |   |           Categories, Budgets, Transactions,
-    |   |   |           NotFound + tests)
+    |   |   |           ChangePassword, NotFound + tests)
     |   |   |-- test/ (setup.ts, utils.tsx)
     |   |   |-- types/ (api.ts)
     |   |-- coverage/           (gitignored, HTML+LCov reports)
@@ -335,7 +335,7 @@ Python 3.13.15, Node 24, Git, Docker, VS Code extensions install.
 - Endpoints: /api/v1/dashboard (5)
 - 15 new tests (90 total)
 - Backend MVP complete
-- Commit: (pending with Phase 12)
+- Commit: aca38b6
 
 ### Phase 12 - React Foundation (Done)
 - Vite 7 + React 19 + TypeScript 5.6 + Tailwind 4
@@ -364,6 +364,23 @@ Python 3.13.15, Node 24, Git, Docker, VS Code extensions install.
   2. App.test Router-in-Router -> plain render + pushState
   3. esbuild postinstall warning -> npm approve-scripts esbuild
   4. tsconfig baseUrl deprecation -> removed
+- Commit: beb7b10
+
+### Phase 13 - Auth Polish + Change Password (Done)
+- 401 auto-logout: client.ts fires callback on 401 for authenticated
+  requests. AuthContext clears token, sets sessionExpired.
+  ProtectedRoute redirects to /login.
+- LoginPage shows amber "session expired" banner when flagged.
+- New ChangePasswordPage wired to POST /api/v1/auth/change-password.
+- Layout has profile dropdown (avatar + name + email,
+  Change password, Logout). Closes on outside click.
+- AuthContext exposes changePassword(current, newPw).
+- authApi.changePassword(payload) added.
+- Types: ChangePasswordPayload added.
+- 2 new tests (session-expired banner + changePassword flow).
+  29 tests total.
+- Manual end-to-end verified: wrong current, short pw, mismatch,
+  success, login with new password.
 - Commit: (pending)
 
 ---
@@ -568,6 +585,22 @@ npm rebuild esbuild
 ### tsconfig baseUrl deprecated (TS 7.0 preview)
 baseUrl hata dein. TS 5.6+ mein paths without baseUrl works.
 
+### Tailwind v4 arbitrary values suggestion
+Symptom: "The class max-w-[12rem] can be written as max-w-48".
+Fix: Tailwind v4 prefers canonical classes.
+     Replace max-w-[12rem] with max-w-48 (1rem = 4 units).
+
+### Frontend: PowerShell mein file content paste ho gaya
+Symptom: PSReadLine crash ya unknown command.
+Fix: Ye harmless hai, sirf screen history ka error.
+     Aage: file content sirf VS Code mein paste karein
+     (code <path> command chalayein, phir paste karein).
+
+### Frontend test: "clearSessionExpired is not a function"
+Symptom: mocked useAuth value mein naye fields nahi.
+Fix: Test ke mock mein sessionExpired aur clearSessionExpired
+     (aur baad mein changePassword) add karein.
+
 ---
 
 ## 13. Docker Details
@@ -608,6 +641,11 @@ Tip: Start Docker Desktop when you sign in.
 - Frontend tests jsdom mein chalte hain (real HTTP nahi).
 - Vite dev server port 5173 (strictPort) — backend CORS isi ke liye.
 - Vite config mein Vitest config bhi hai (ek hi file).
+- 401 par AuthContext sessionExpired set karta hai; LoginPage
+  amber banner dikhata hai; callback client.ts se fire hota hai.
+- Profile dropdown Layout mein hai; click-outside se band hota hai.
+- ChangePassword backend already Phase 7 mein thi; Phase 13 mein
+  frontend wiring ki.
 
 ---
 
@@ -615,7 +653,6 @@ Tip: Start Docker Desktop when you sign in.
 
 | Phase | Scope                                    | Est. days |
 |-------|------------------------------------------|-----------|
-| 13    | Frontend auth wiring + logout flow       | 1         |
 | 14-15 | Dashboard, transactions, all UI screens  | 4         |
 | 16-17 | Analytics, PDF/CSV, uploads, notifs      | 2         |
 | 18-20 | RAG, AI chat, agent tools                | 4         |
@@ -626,7 +663,7 @@ Tip: Start Docker Desktop when you sign in.
 MVP checkpoint: Phase 15 ke end mein.
 
 Backend MVP complete at Phase 11 (90 tests).
-Frontend foundation complete at Phase 12 (27 tests).
+Frontend auth complete at Phase 13 (29 tests).
 
 ---
 

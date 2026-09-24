@@ -18,9 +18,11 @@ function setupAuth(loginImpl: (...args: unknown[]) => Promise<unknown>) {
     user: null,
     isAuthenticated: false,
     isLoading: false,
+    sessionExpired: false,
     login: loginImpl as never,
     register: vi.fn(),
     logout: vi.fn(),
+    clearSessionExpired: vi.fn(),
   });
 }
 
@@ -33,6 +35,25 @@ describe("LoginPage", () => {
     expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /sign in/i }),
+    ).toBeInTheDocument();
+  });
+
+  it("shows the session-expired banner when flagged", () => {
+    mockedUseAuth.mockReturnValue({
+      user: null,
+      isAuthenticated: false,
+      isLoading: false,
+      sessionExpired: true,
+      login: vi.fn() as never,
+      register: vi.fn(),
+      logout: vi.fn(),
+      clearSessionExpired: vi.fn(),
+    });
+
+    renderWithProviders(<LoginPage />);
+
+    expect(
+      screen.getByText(/your session expired/i),
     ).toBeInTheDocument();
   });
 

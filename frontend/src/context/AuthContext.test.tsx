@@ -4,23 +4,35 @@ import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 import { AuthProvider, useAuth } from "./AuthContext";
 import { clearToken, setToken } from "../api/client";
 
-// Small consumer component that exposes auth state as text.
 function Consumer() {
-  const { user, isAuthenticated, isLoading, login, register, logout } = useAuth();
+  const {
+    user,
+    isAuthenticated,
+    isLoading,
+    sessionExpired,
+    login,
+    register,
+    logout,
+    changePassword,
+    clearSessionExpired,
+  } = useAuth();
   return (
     <div>
       <span data-testid="loading">{String(isLoading)}</span>
       <span data-testid="authed">{String(isAuthenticated)}</span>
       <span data-testid="email">{user?.email ?? "none"}</span>
+      <span data-testid="expired">{String(sessionExpired)}</span>
       <button onClick={() => login("a@b.com", "pw")}>login</button>
       <button
-        onClick={() =>
-          register({ email: "c@d.com", password: "password123" })
-        }
+        onClick={() => register({ email: "c@d.com", password: "password123" })}
       >
         register
       </button>
       <button onClick={logout}>logout</button>
+      <button onClick={() => changePassword("old", "newpassword")}>
+        change-password
+      </button>
+      <button onClick={clearSessionExpired}>clear-expired</button>
     </div>
   );
 }
@@ -79,7 +91,9 @@ describe("AuthContext", () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByTestId("email").textContent).toBe("persisted@test.com"),
+      expect(screen.getByTestId("email").textContent).toBe(
+        "persisted@test.com",
+      ),
     );
     expect(screen.getByTestId("authed").textContent).toBe("true");
   });
@@ -104,12 +118,10 @@ describe("AuthContext", () => {
   });
 
   it("login stores token and fetches user", async () => {
-    // login → token response
     fetchMock
       .mockResolvedValueOnce(
         jsonResponse({ access_token: "new-token", token_type: "bearer" }),
       )
-      // me → user response
       .mockResolvedValueOnce(
         jsonResponse({
           id: 1,
@@ -170,15 +182,50 @@ describe("AuthContext", () => {
     expect(localStorage.getItem("access_token")).toBeNull();
   });
 
-  it("throws if useAuth is used outside of AuthProvider", () => {
-    // Suppress React error boundary noise.
-    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
-    expect(() => render(<Consumer />)).toThrow(
-      /useAuth must be used inside/,
+  it("changePassword calls the backend endpoint", async () => {
+    setToken("existing");
+    fetchMock.mockResolvedValueOnce(
+      jsonResponse({
+        id: 1,
+        email: "x@y.com",
+        full_name: null,
+        currency: "PKR",
+        is_active: true,
+        created_at: "2026-01-01T00:00:00Z",
+      }),
     );
+
+    render(
+      <AuthProvider>
+        <Consumer />
+      </AuthProvider>,
+    );
+
+    await waitFor(() =>
+      expect(screen.getByTestId("authed").textContent).toBe("true"),
+    );
+
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
+
+    screen.getByText("change-password").click();
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+
+    const [url, init] = fetchMock.mock.calls[1];
+    expect(url).toBe("http://localhost:8000/api/v1/auth/change-password");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({
+      current_password: "old",
+      new_password: "newpassword",
+    });
+  });
+
+  it("throws if useAuth is used outside of AuthProvider", () => {
+    const spy = vi.spyOn(console, "error").mockImplementation(() => {});
+    expect(() => render(<Consumer />)).toThrow(/useAuth must be used inside/);
     spy.mockRestore();
   });
 });
 
-// Keep TypeScript happy — clearToken import is used in other test files.
+// Keep TS happy — clearToken is used indirectly by tests through localStorage.
 void clearToken;

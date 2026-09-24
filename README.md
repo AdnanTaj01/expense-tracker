@@ -194,15 +194,15 @@ Transaction list supports: `account_id`, `category_id`, `kind`, `from_date`, `to
 | 10    | Budgets and recurring             | Done   |
 | 11    | Dashboard API                     | Done   |
 | 12    | React foundation + auth UI        | Done ✅|
-| 13    | Frontend auth wiring              | Next   |
-| 14-15 | Dashboard, transactions, all UI   |        |
+| 13    | Auth polish + change password     | Done ✅|
+| 14-15 | Dashboard, transactions, all UI   | Next   |
 | 16-17 | Analytics, uploads, notifications |        |
 | 18-20 | AI: RAG, chat, agent tools        |        |
 | 21    | Testing and security sweep        |        |
 | 22    | Dockerization and deployment      |        |
 | 23    | Final QA and docs                 |        |
 
-**Backend MVP complete** (90 tests). **Frontend foundation complete** (27 tests).
+- **Testing:** pytest (backend, 90 tests) + Vitest (frontend, 29 tests)
 
 See `docs/PROJECT_LOG.md` for the full phase-by-phase record.
 

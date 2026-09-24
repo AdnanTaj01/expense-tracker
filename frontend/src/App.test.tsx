@@ -24,18 +24,22 @@ const authedValue = {
   },
   isAuthenticated: true,
   isLoading: false,
+  sessionExpired: false,
   login: vi.fn(),
   register: vi.fn(),
   logout: vi.fn(),
+  clearSessionExpired: vi.fn(),
 };
 
 const anonValue = {
   user: null,
   isAuthenticated: false,
   isLoading: false,
+  sessionExpired: false,
   login: vi.fn(),
   register: vi.fn(),
   logout: vi.fn(),
+  clearSessionExpired: vi.fn(),
 };
 
 function setUrl(path: string) {

@@ -1,5 +1,10 @@
 import { api } from "./client";
-import type { Token, User, UserCreate } from "../types/api";
+import type {
+  ChangePasswordPayload,
+  Token,
+  User,
+  UserCreate,
+} from "../types/api";
 
 export const authApi = {
   register: (payload: UserCreate): Promise<User> =>
@@ -12,4 +17,7 @@ export const authApi = {
     }),
 
   me: (): Promise<User> => api.get<User>("/api/v1/auth/me", true),
+
+  changePassword: (payload: ChangePasswordPayload): Promise<void> =>
+    api.post<void>("/api/v1/auth/change-password", payload, true),
 };
