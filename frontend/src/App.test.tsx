@@ -29,6 +29,7 @@ const authedValue = {
   register: vi.fn(),
   logout: vi.fn(),
   clearSessionExpired: vi.fn(),
+  changePassword: vi.fn(),
 };
 
 const anonValue = {
@@ -40,7 +41,38 @@ const anonValue = {
   register: vi.fn(),
   logout: vi.fn(),
   clearSessionExpired: vi.fn(),
+  changePassword: vi.fn(),
 };
+
+// Minimal valid overview payload so the dashboard renders.
+const emptyOverview = {
+  summary: {
+    year: 2026,
+    month: 9,
+    total_balance: "0.00",
+    month_income: "0.00",
+    month_expense: "0.00",
+    net: "0.00",
+  },
+  top_categories: [],
+  trend: [
+    { year: 2026, month: 4, income: "0.00", expense: "0.00" },
+    { year: 2026, month: 5, income: "0.00", expense: "0.00" },
+    { year: 2026, month: 6, income: "0.00", expense: "0.00" },
+    { year: 2026, month: 7, income: "0.00", expense: "0.00" },
+    { year: 2026, month: 8, income: "0.00", expense: "0.00" },
+    { year: 2026, month: 9, income: "0.00", expense: "0.00" },
+  ],
+  recent_transactions: [],
+  generated_at: "2026-09-24T00:00:00Z",
+};
+
+function jsonResponse(body: unknown, status = 200): Response {
+  return new Response(JSON.stringify(body), {
+    status,
+    headers: { "Content-Type": "application/json" },
+  });
+}
 
 function setUrl(path: string) {
   window.history.pushState({}, "", path);
@@ -51,8 +83,18 @@ function renderApp() {
 }
 
 describe("App routing", () => {
-  beforeEach(() => setUrl("/"));
-  afterEach(() => setUrl("/"));
+  let fetchMock: ReturnType<typeof vi.fn>;
+
+  beforeEach(() => {
+    fetchMock = vi.fn().mockResolvedValue(jsonResponse(emptyOverview));
+    vi.stubGlobal("fetch", fetchMock);
+    setUrl("/");
+  });
+
+  afterEach(() => {
+    vi.unstubAllGlobals();
+    setUrl("/");
+  });
 
   it("redirects unauthenticated users away from /dashboard to /login", async () => {
     mockedUseAuth.mockReturnValue(anonValue);
