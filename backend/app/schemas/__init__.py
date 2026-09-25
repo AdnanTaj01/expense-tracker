@@ -4,7 +4,19 @@ from app.schemas.account import (
     AccountType,
     AccountUpdate,
 )
-from app.schemas.auth import ChangePassword, Token
+from app.schemas.analytics import (
+    AccountSpend,
+    CategoryTrend,
+    CategoryTrendPoint,
+    MonthComparison,
+    WeekdayHeatmapItem,
+)
+from app.schemas.auth import (
+    ChangePassword,
+    ForgotPasswordRequest,
+    ResetPasswordRequest,
+    Token,
+)
 from app.schemas.budget import (
     BudgetCreate,
     BudgetRead,
@@ -42,6 +54,7 @@ from app.schemas.user import UserBase, UserCreate, UserRead
 __all__ = [
     "AccountCreate",
     "AccountRead",
+    "AccountSpend",
     "AccountType",
     "AccountUpdate",
     "BudgetCreate",
@@ -52,15 +65,20 @@ __all__ = [
     "CategoryCreate",
     "CategoryKind",
     "CategoryRead",
+    "CategoryTrend",
+    "CategoryTrendPoint",
     "CategoryUpdate",
     "ChangePassword",
     "DashboardOverview",
     "DashboardSummary",
+    "ForgotPasswordRequest",
     "GenerateResult",
+    "MonthComparison",
     "RecurringFrequency",
     "RecurringRuleCreate",
     "RecurringRuleRead",
     "RecurringRuleUpdate",
+    "ResetPasswordRequest",
     "Token",
     "TransactionCreate",
     "TransactionKind",
@@ -71,4 +89,5 @@ __all__ = [
     "UserBase",
     "UserCreate",
     "UserRead",
+    "WeekdayHeatmapItem",
 ]

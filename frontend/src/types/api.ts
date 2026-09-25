@@ -159,3 +159,57 @@ export interface DashboardOverview {
   recent_transactions: Transaction[];
   generated_at: string;
 }
+
+export interface MonthComparison {
+  current_year: number;
+  current_month: number;
+  current_income: string;
+  current_expense: string;
+  previous_year: number;
+  previous_month: number;
+  previous_income: string;
+  previous_expense: string;
+  income_change_pct: string | null;
+  expense_change_pct: string | null;
+}
+
+export interface CategoryTrendPoint {
+  year: number;
+  month: number;
+  total: string;
+  transaction_count: number;
+}
+
+export interface CategoryTrend {
+  category_id: number;
+  category_name: string;
+  kind: string;
+  points: CategoryTrendPoint[];
+  total: string;
+}
+
+export interface AccountSpend {
+  account_id: number;
+  account_name: string;
+  total_expense: string;
+  total_income: string;
+  transaction_count: number;
+}
+
+export interface WeekdayHeatmapItem {
+  weekday: number;
+  weekday_name: string;
+  total_expense: string;
+  total_income: string;
+  transaction_count: number;
+}
+
+export interface Receipt {
+  id: number;
+  user_id: number;
+  transaction_id: number | null;
+  original_name: string;
+  content_type: string;
+  size_bytes: number;
+  created_at: string;
+}

@@ -3,10 +3,12 @@ import { useEffect, useState, type FormEvent } from "react";
 import { accountsApi } from "../api/accounts";
 import { ApiError } from "../api/client";
 import { categoriesApi } from "../api/categories";
+import { exportsApi } from "../api/exports";
 import {
   transactionsApi,
   type TransactionFilters,
 } from "../api/transactions";
+import ExportButton from "../components/ExportButton";
 import { useAuth } from "../context/AuthContext";
 import type {
   Account,
@@ -223,15 +225,18 @@ function TransactionsPage() {
     <div className="text-slate-900 dark:text-slate-100">
       <div className="flex flex-wrap gap-3 justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Transactions</h1>
-        <button
-          type="button"
-          onClick={openCreate}
-          disabled={accounts.length === 0}
-          className={btnPrimaryCls}
-          title={accounts.length === 0 ? "Create an account first" : undefined}
-        >
-          + Add transaction
-        </button>
+        <div className="flex items-center gap-2">
+          <ExportButton onClick={() => exportsApi.transactions()} />
+          <button
+            type="button"
+            onClick={openCreate}
+            disabled={accounts.length === 0}
+            className={btnPrimaryCls}
+            title={accounts.length === 0 ? "Create an account first" : undefined}
+          >
+            + Add transaction
+          </button>
+        </div>
       </div>
 
       {accounts.length === 0 && (

@@ -12,13 +12,24 @@ if (typeof window !== "undefined" && !window.matchMedia) {
       matches: false,
       media: query,
       onchange: null,
-      addListener: vi.fn(),        // legacy API
-      removeListener: vi.fn(),     // legacy API
+      addListener: vi.fn(),
+      removeListener: vi.fn(),
       addEventListener: vi.fn(),
       removeEventListener: vi.fn(),
       dispatchEvent: vi.fn(),
     }),
   });
+}
+
+// jsdom doesn't implement ResizeObserver — needed by Recharts.
+if (typeof globalThis.ResizeObserver === "undefined") {
+  class ResizeObserverStub {
+    observe() {}
+    unobserve() {}
+    disconnect() {}
+  }
+  (globalThis as unknown as { ResizeObserver: typeof ResizeObserverStub })
+    .ResizeObserver = ResizeObserverStub;
 }
 
 // Ensure each test starts with a clean DOM, localStorage, and theme.

@@ -1,6 +1,6 @@
 # Expense Tracker — Master Project Log
 
-Last updated: Forgot password + dark mode + responsive (Post-MVP) — 2026-09-25
+Last updated: Phase 16-17 (analytics, exports, receipts) — 2026-09-25
 
 Ye file project ka single source of truth hai. Isme project ka
 overview, decisions, setup steps, har phase ka record, aur
@@ -18,6 +18,7 @@ Core idea:
 - Income aur expense transactions record karte hain
 - Budgets set karte hain aur usage monitor karte hain
 - Dashboard par summary dekhte hain
+- Analytics + CSV exports + receipts
 - (Phase 18+) AI assistant documents par sawal-jawab karta hai
 
 Rule: App AI ke bina bhi chalti hai. LLM sirf explain karta hai,
@@ -26,8 +27,9 @@ woh source of truth nahi hai.
 **Backend MVP (Phases 0-11) complete.**
 **Frontend MVP (Phases 12-15) complete.**
 **Post-MVP polish (forgot password, dark mode, responsive) complete.**
-**156 tests passing (97 backend + 59 frontend).**
-**Tags: v0.1.0-mvp, v0.1.1-forgot-password**
+**Analytics + exports + receipts (Phases 16-17) complete.**
+**180 tests passing (118 backend + 62 frontend).**
+**Tags: v0.1.0-mvp, v0.1.1-forgot-password, v0.2.0-analytics-receipts**
 
 ---
 
@@ -36,6 +38,7 @@ woh source of truth nahi hai.
 | Layer       | Technology                                       |
 |-------------|--------------------------------------------------|
 | Frontend    | React 19 + TypeScript + Tailwind 4 + Vite 7      |
+| Charts      | Recharts 2.15                                    |
 | Backend     | Python 3.13 + FastAPI + Uvicorn (complete)       |
 | Database    | PostgreSQL 18 + pgvector (Docker)                |
 | ORM         | SQLAlchemy 2.x (sync) + psycopg 3                |
@@ -92,6 +95,10 @@ Frontend layering:
 11. Forgot password: token-based reset with SHA-256 hashed tokens,
     15-min expiry, single-use. Dev mein link console par print
     hota hai; production mein SMTP add karenge.
+12. Receipts: local disk storage under `backend/uploads/receipts/`.
+    Filename is uuid-prefixed (safety). Original name is untrusted
+    display-only. In production this becomes object storage
+    (Phase 22).
 
 ---
 
@@ -144,24 +151,29 @@ Command convention:
     |   |       |-- fdaed5992445_create_budgets_table.py
     |   |       |-- a157bb4870e3_create_recurring_rules_table.py
     |   |       |-- 585c4f1e42f7_create_password_reset_tokens_table.py
+    |   |       |-- 6fb86563d435_create_receipts_table.py
     |   |   |-- app/
     |   |   |   |-- main.py
     |   |   |   |-- core/ (config.py, security.py)
     |   |   |   |-- db/ (base.py, session.py)
-    |   |   |   |-- models/ (user, account, category,
-    |   |   |   |           transaction, budget, recurring,
-    |   |   |   |           password_reset_token)
+    |   |   |   |-- models/ (user, account, category, transaction,
+    |   |   |   |           budget, recurring, password_reset_token,
+    |   |   |   |           receipt)
     |   |   |   |-- schemas/ (user, auth, account, category,
-    |   |   |   |            transaction, budget, recurring, dashboard)
+    |   |   |   |            transaction, budget, recurring,
+    |   |   |   |            dashboard, analytics, receipt)
     |   |   |   |-- services/ (user, account, category, transaction,
     |   |   |   |             budget, recurring, dashboard,
-    |   |   |   |             password_reset_service)
+    |   |   |   |             password_reset_service, analytics_service,
+    |   |   |   |             export_service, receipt_service)
     |   |   |   |-- api/ (deps.py, v1/{auth, accounts, categories,
-    |   |   |   |         transactions, budgets, recurring, dashboard})
-    |   |   |   |-- scripts/ (list_users.py, reset_password.py)
+    |   |   |   |         transactions, budgets, recurring, dashboard,
+    |   |   |   |         analytics, exports, receipts})
+    |   |   |   |-- scripts/ (list_users, reset_password,
+    |   |   |   |              seed_demo_data)
     |   |   |   |-- ai/ (Phase 18+)
-    |   |   |-- tests/ (97 tests)
-    |   |-- uploads/            (gitignored)
+    |   |   |-- tests/ (118 tests)
+    |   |   |-- uploads/            (gitignored — receipts storage)
     |-- frontend/
     |   |-- .env, .env.example
     |   |-- .vscode/settings.json
@@ -170,21 +182,22 @@ Command convention:
     |   |-- tsconfig.json, tsconfig.node.json
     |   |-- index.html
     |   |-- src/
-    |   |   |-- main.tsx         (mount + ThemeProvider + AuthProvider)
+    |   |   |-- main.tsx
     |   |   |-- App.tsx
-    |   |   |-- index.css        (Tailwind v4 + dark variant)
+    |   |   |-- index.css
     |   |   |-- vite-env.d.ts
     |   |   |-- api/ (client.ts, auth.ts, dashboard.ts,
     |   |   |         accounts.ts, categories.ts,
     |   |   |         transactions.ts, budgets.ts,
+    |   |   |         analytics.ts, exports.ts, receipts.ts,
     |   |   |         client.test.ts)
     |   |   |-- components/ (Layout.tsx, ProtectedRoute.tsx,
-    |   |   |                PasswordInput.tsx + tests)
-    |   |   |-- context/ (AuthContext.tsx, ThemeContext.tsx + tests)
+    |   |   |                PasswordInput.tsx, ExportButton.tsx)
+    |   |   |-- context/ (AuthContext.tsx, ThemeContext.tsx)
     |   |   |-- pages/ (Login, Register, ForgotPassword,
     |   |   |           ResetPassword, Dashboard, Accounts,
     |   |   |           Categories, Budgets, Transactions,
-    |   |   |           NotFound + tests)
+    |   |   |           Analytics, Receipts, NotFound + tests)
     |   |   |-- test/ (setup.ts, utils.tsx)
     |   |   |-- types/ (api.ts)
     |   |-- coverage/           (gitignored, HTML+LCov reports)
@@ -212,6 +225,8 @@ Note: POSTGRES_HOST_PORT=5433 (not 5432).
     CORS_ORIGINS=http://localhost:5173
     FRONTEND_URL=http://localhost:5173
     DEBUG_RESET_LINKS=true
+    UPLOAD_DIR=uploads
+    MAX_UPLOAD_SIZE_MB=5
 
 Password encoding (URL):
 
@@ -468,8 +483,64 @@ Reset, 404, Layout, all modals
 - `ChangePassword` schema still exists in backend (kept for
   backward compatibility) but frontend no longer uses it
 
+- Commit: 89a8b9a
+- Tag: v0.1.1-forgot-password
+
+### Phase 16-17 - Analytics, CSV Exports, Receipts (Done)
+
+**Backend:**
+- `analytics_service.py` + `/api/v1/analytics` (4 endpoints):
+  - `month-comparison` — current vs previous month with % change
+  - `category-trend` — N months for a category (oldest first)
+  - `top-accounts` — rank accounts by expense over N months
+  - `weekday-heatmap` — expense/income by weekday (computed in
+    Python for DB portability)
+- `export_service.py` + `/api/v1/exports` (3 CSV endpoints):
+  - transactions.csv, accounts.csv, budgets.csv
+  - Proper `Content-Disposition` header (attachment; filename=...)
+  - Timestamps in filename: `transactions_2026-09-25_1430.csv`
+- **Receipts feature:**
+  - `Receipt` model (user_id, transaction_id nullable, stored_name
+    uuid-prefixed, original_name, content_type, size_bytes,
+    created_at)
+  - Migration `6fb86563d435_create_receipts_table.py`
+  - `receipt_service.py` — save to disk under
+    `uploads/receipts/`, validate content type
+    (image/jpeg, image/png, image/webp, image/gif, application/pdf),
+    max 5 MB, single active upload, delete file on disk
+  - `/api/v1/receipts` endpoints: list, upload (multipart),
+    get, download (FileResponse), delete
+  - Config: `UPLOAD_DIR=uploads`, `MAX_UPLOAD_SIZE_MB=5`
+  - Files stored in `backend/uploads/receipts/` (gitignored)
+- CLI helper: `app/scripts/seed_demo_data.py` — seeds 3 accounts,
+  17 transactions, 5 budgets for demo
+- 8 new analytics tests + 5 exports tests + 8 receipts tests
+  = **118 backend tests total**
+
+**Frontend:**
+- Recharts 2.15 installed
+- `AnalyticsPage` — month comparison cards, Pie chart (top accounts),
+  Bar chart (weekday), Line chart (category trend, dropdown selector)
+- `ExportButton` component — reusable, with loading + error state
+- Export button on Transactions, Accounts, Budgets pages
+- `ReceiptsPage` — file upload form, transaction attach dropdown,
+  receipts table with download/delete
+- Nav: Analytics, Receipts added (7 total nav links)
+- `ResizeObserver` stub in `test/setup.ts` (Recharts requirement)
+- **62 frontend tests total**
+
+**Masle:**
+1. `from __future__ import annotations` line 3 par tha — Python
+   rule ke mutabiq ye line 1 honi chahiye. Fix: poori file reorder.
+2. `receipts.py` aur `receipt_service.py` files missing thi —
+   circular import errors. Fix: dono add kiye.
+3. `receipts.ts` file tooti hui save hui (try/parse lines gayab).
+   Fix: poora file dobara paste kiya.
+4. Analytics tests `ResizeObserver is not defined` de rahe thay.
+   Fix: jsdom mein stub add kiya.
+
 - Commit: (pending)
-- Tag: v0.1.1-forgot-password (pending)
+- Tag: v0.2.0-analytics-receipts (pending)
 
 ---
 
@@ -545,6 +616,30 @@ Reset, 404, Layout, all modals
 | GET    | /api/v1/dashboard/recent              | Yes  |
 | GET    | /api/v1/dashboard/overview            | Yes  |
 
+### Analytics
+| Method | Path                                            | Auth |
+|--------|-------------------------------------------------|------|
+| GET    | /api/v1/analytics/month-comparison              | Yes  |
+| GET    | /api/v1/analytics/category-trend?category_id=X  | Yes  |
+| GET    | /api/v1/analytics/top-accounts?months=3         | Yes  |
+| GET    | /api/v1/analytics/weekday-heatmap?months=3      | Yes  |
+
+### Exports (CSV)
+| Method | Path                                  | Auth |
+|--------|---------------------------------------|------|
+| GET    | /api/v1/exports/transactions.csv      | Yes  |
+| GET    | /api/v1/exports/accounts.csv          | Yes  |
+| GET    | /api/v1/exports/budgets.csv           | Yes  |
+
+### Receipts
+| Method | Path                                  | Auth |
+|--------|---------------------------------------|------|
+| GET    | /api/v1/receipts                      | Yes  |
+| POST   | /api/v1/receipts (multipart)          | Yes  |
+| GET    | /api/v1/receipts/{id}                 | Yes  |
+| GET    | /api/v1/receipts/{id}/download        | Yes  |
+| DELETE | /api/v1/receipts/{id}                 | Yes  |
+
 ---
 
 ## 11. Common Commands Reference
@@ -593,17 +688,12 @@ Reset, 404, Layout, all modals
     npm run test:ui             # browser UI
     npm run test:coverage       # coverage reports
 
-### Password reset (CLI fallback)
-
-Agar forgot-password flow se reset nahi ho pa raha:
-
-    cd backend
-    python -m app.scripts.reset_password user@example.com NewPass123!
-
-### Users list
+### CLI scripts
 
     cd backend
     python -m app.scripts.list_users
+    python -m app.scripts.reset_password user@example.com NewPass123!
+    python -m app.scripts.seed_demo_data user@example.com
 
 ### Git workflow
 
@@ -674,7 +764,6 @@ uvicorn app.main:app --reload --port 8000 (module path, file path nahi)
 
 ### Frontend test: label without form control
 <label htmlFor="x"> aur <input id="x"> — dono zaroori.
-Accessibility aur getByLabelText dono ke liye.
 
 ### Frontend test: "Router inside Router"
 App.tsx mein already BrowserRouter hai. Test mein plain render +
@@ -698,9 +787,7 @@ Fix: Ye harmless hai. Aage: file content sirf VS Code mein
 
 ### Frontend test: "clearSessionExpired is not a function"
 Symptom: mocked useAuth value mein naye fields nahi.
-Fix: Test mock mein saare naye fields add karein
-     (sessionExpired, clearSessionExpired, forgotPassword,
-     resetPassword).
+Fix: Test mock mein saare naye fields add karein.
 
 ### Dashboard test: "Found multiple elements with text: /5,000/"
 Symptom: Rs 5,000 do jagah (Month Income card + Salary tx).
@@ -716,8 +803,8 @@ Fix: Add a matchMedia stub in `src/test/setup.ts`.
 
 ### Testing Library: getByLabelText(/password/i) is ambiguous
 Symptom: "Found multiple elements with the text of: /password/i"
-Fix: The "Show password" toggle button also has an aria-label
-     containing "password". Use anchored regex: `/^password$/i`.
+Fix: Use anchored regex: `/^password$/i`. "Show password"
+     toggle button bhi match karta hai.
 
 ### SQLAlchemy: "User is not defined" / Pylance warnings
 Symptom: Pylance reports undefined forward-referenced types.
@@ -727,12 +814,40 @@ Fix: Add `from __future__ import annotations` and use
 ### Forgot password — reset link missing in browser
 Symptom: No email arrives (expected in dev).
 Fix: Check backend console. `DEBUG_RESET_LINKS=true` in `.env`
-     prints the reset URL to stdout. Copy and paste it in browser.
+     prints the reset URL to stdout.
 
 ### Password field not visible in dark mode
 Symptom: Text invisible in dark theme.
 Fix: Ensure input has `dark:bg-slate-800 dark:text-slate-100`
      classes. Same for card, table, borders.
+
+### Recharts: "ResizeObserver is not defined"
+Symptom: AnalyticsPage tests fail in jsdom.
+Fix: In `src/test/setup.ts`, add a ResizeObserver stub:
+    if (typeof globalThis.ResizeObserver === "undefined") {
+      class ResizeObserverStub {
+        observe() {}
+        unobserve() {}
+        disconnect() {}
+      }
+      (globalThis as unknown as { ResizeObserver: typeof ResizeObserverStub })
+        .ResizeObserver = ResizeObserverStub;
+    }
+
+### Python: "from __future__ imports must occur at the beginning"
+Symptom: SyntaxError when starting uvicorn/alembic.
+Fix: The line must be the very first non-docstring line.
+     Move it to line 1, before all other imports.
+
+### TypeScript: "Cannot find module './client'"
+Symptom: After pasting a file, imports appear missing.
+Fix: The file was likely saved incomplete (missing try/parse lines).
+     Check `type <path>` output and re-paste the full file.
+
+### Circular import: "partially initialized module 'app.api.v1'"
+Symptom: cannot import name 'receipts' — circular import error.
+Fix: The router file was missing. Add `app/api/v1/receipts.py`
+     and the required `schemas/receipt.py`, `services/receipt_service.py`.
 
 ---
 
@@ -759,7 +874,7 @@ Tip: Start Docker Desktop when you sign in.
 - alembic env.py mein `import app.models` zaroori hai.
 - pytest alag DB (expense_tracker_test) use karta hai.
 - OneDrive mein project na rakhein.
-- Har phase ke commit se pehle README ka Progress update karein.
+- Har phase ke commit se pehle README + PROJECT_LOG update karein.
 - Account balance AccountUpdate mein intentionally nahi.
 - Transaction amount hamesha positive. Sign kind se.
 - Category delete -> transactions.category_id NULL.
@@ -772,50 +887,49 @@ Tip: Start Docker Desktop when you sign in.
 - Frontend: token localStorage mein. isLoading state se
   protected route pehle render nahi hota.
 - Frontend tests jsdom mein chalte hain (real HTTP nahi).
-- Vite dev server port 5173 (strictPort) — backend CORS isi ke liye.
+- Vite dev server port 5173 (strictPort).
 - Vite config mein Vitest config bhi hai (ek hi file).
-- 401 par AuthContext sessionExpired set karta hai; LoginPage
-  amber banner dikhata hai; callback client.ts se fire hota hai.
-- Profile dropdown Layout mein hai; click-outside se band hota hai.
-- ChangePassword schema backend mein rakha hai (backward compat)
-  lekin frontend ab use nahi karta.
+- 401 par AuthContext sessionExpired set karta hai.
+- Profile dropdown Layout mein hai; click-outside se band.
 - Forgot password: 15-min expiry, single-use, SHA-256 hashed.
-- Forgot password: naya request purane unused tokens ko invalid
-  kar deta hai.
-- Password fields: `PasswordInput` component with show/hide eye.
-- Theme: localStorage mein `theme` key; `prefers-color-scheme`
-  default on first visit.
-- Dark mode: Tailwind v4 `@custom-variant dark` — class based
-  (`.dark` on `<html>`).
-- Modal `z-30`, dropdown `z-20` — dropdown modal ke andar kaam
-  nahi karta, isliye modal mein confirm prompts browser-level
-  hain.
-- Mobile: hamburger menu `md:hidden`, desktop nav `hidden md:flex`.
+- Naya forgot-password request purane unused tokens invalid karta hai.
+- Password fields: `PasswordInput` with show/hide eye toggle.
+- Theme: localStorage `theme` key; `prefers-color-scheme` default.
+- Dark mode: Tailwind v4 `@custom-variant dark` — class based.
+- Modal `z-30`, dropdown `z-20`.
+- Mobile: hamburger `md:hidden`, desktop nav `hidden md:flex`.
+- Recharts: `ResponsiveContainer` uses ResizeObserver — stub in tests.
+- CSV exports: files served with `Content-Disposition: attachment`.
+- Receipts: content types restricted to jpeg/png/webp/gif/pdf.
+- Receipts: original_name is untrusted; stored_name is uuid-prefixed.
+- Receipts: files stored in `backend/uploads/receipts/` (gitignored).
+- Analytics weekday heatmap computed in Python (DB-portable).
 
 ---
 
 ## 15. Roadmap (aage kya)
 
-**Post-MVP polish done:** forgot password, dark mode, responsive.
-
 | Phase | Scope                                    | Est. days |
 |-------|------------------------------------------|-----------|
-| 16-17 | Analytics, PDF/CSV, uploads, notifs      | 2         |
 | 18-20 | RAG, AI chat, agent tools                | 4         |
 | 21    | Testing aur security sweep               | 1         |
 | 22    | Dockerization aur deployment             | 2         |
 | 23    | Final QA aur docs                        | 1         |
 
-**MVP + polish complete:**
+**Completed:**
 - Backend MVP complete at Phase 11 (90 tests)
 - Frontend MVP complete at Phase 15 (57 tests)
-- Post-MVP polish complete (97 + 59 = 156 tests)
-- Git tags: v0.1.0-mvp, v0.1.1-forgot-password
+- Post-MVP polish (forgot password, dark mode, responsive)
+- Analytics + exports + receipts at Phase 17
+- **Total: 118 backend + 62 frontend = 180 tests**
+- Git tags: v0.1.0-mvp, v0.1.1-forgot-password,
+  v0.2.0-analytics-receipts
 
-Next natural steps:
-- Phase 18-20 (AI) — sab se interesting
-- Phase 22 (deployment) — production par live
-- Phase 16-17 (analytics + uploads) — additional polish
+**Next: Phase 18-20 (AI)** — needs decisions:
+- LLM provider (OpenAI / Anthropic / Ollama)
+- Embedding model
+- API key in backend `.env`
+- pgvector already set up for RAG
 
 ---
 

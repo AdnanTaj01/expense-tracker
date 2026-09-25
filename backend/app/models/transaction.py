@@ -1,5 +1,8 @@
+from __future__ import annotations
+
 from datetime import datetime
 from decimal import Decimal
+from typing import TYPE_CHECKING
 
 from sqlalchemy import (
     DateTime,
@@ -11,6 +14,12 @@ from sqlalchemy import (
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.account import Account
+    from app.models.category import Category
+    from app.models.receipt import Receipt
+    from app.models.user import User
 
 
 class Transaction(Base):
@@ -34,15 +43,12 @@ class Transaction(Base):
         index=True,
     )
 
-    # "income" | "expense"
     kind: Mapped[str] = mapped_column(String(10), nullable=False, index=True)
 
-    # Stored as NUMERIC(12,2) — positive amount. Sign is determined by kind.
     amount: Mapped[Decimal] = mapped_column(Numeric(12, 2), nullable=False)
 
     note: Mapped[str | None] = mapped_column(String(500), nullable=True)
 
-    # When the transaction happened (user-chosen date, not created_at).
     occurred_at: Mapped[datetime] = mapped_column(
         DateTime(timezone=True), nullable=False, index=True
     )
@@ -57,9 +63,10 @@ class Transaction(Base):
         onupdate=func.now(),
     )
 
-    user: Mapped["User"] = relationship(back_populates="transactions")  # noqa: F821
-    account: Mapped["Account"] = relationship()  # noqa: F821
-    category: Mapped["Category | None"] = relationship()  # noqa: F821
+    user: Mapped[User] = relationship(back_populates="transactions")
+    account: Mapped[Account] = relationship()
+    category: Mapped[Category | None] = relationship()
+    receipts: Mapped[list[Receipt]] = relationship(back_populates="transaction")
 
     def __repr__(self) -> str:
         return (

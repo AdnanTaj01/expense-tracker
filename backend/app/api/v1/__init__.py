@@ -2,10 +2,13 @@ from fastapi import APIRouter
 
 from app.api.v1 import (
     accounts,
+    analytics,
     auth,
     budgets,
     categories,
     dashboard,
+    exports,
+    receipts,
     recurring,
     transactions,
 )
@@ -18,5 +21,8 @@ api_router.include_router(transactions.router)
 api_router.include_router(budgets.router)
 api_router.include_router(recurring.router)
 api_router.include_router(dashboard.router)
+api_router.include_router(analytics.router)
+api_router.include_router(exports.router)
+api_router.include_router(receipts.router)
 
 __all__ = ["api_router"]

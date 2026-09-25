@@ -2,7 +2,7 @@
 
 A multi-user personal finance system with an optional AI assistant.
 
-**MVP complete + post-MVP polish.** The whole finance app works without
+**MVP complete + post-MVP features.** The whole finance app works without
 any AI.
 
 The app works when the AI is down. The LLM explains results; it is never
@@ -15,8 +15,9 @@ the source of truth.
 - **Database:** PostgreSQL 18 + pgvector (Docker)
 - **ORM / migrations:** SQLAlchemy 2.x (sync) + Alembic + psycopg 3
 - **Auth:** JWT (PyJWT) + Argon2 (pwdlib)
+- **Charts:** Recharts (Phase 16)
 - **AI:** LLM provider TBD + RAG via pgvector — Phase 18+
-- **Testing:** pytest (97 backend tests) + Vitest (59 frontend tests)
+- **Testing:** pytest (118 backend tests) + Vitest (62 frontend tests)
 
 ## Architecture rule
 
@@ -38,15 +39,18 @@ the source of truth.
     |   |   |-- models/    SQLAlchemy tables
     |   |   |-- schemas/   Pydantic request/response
     |   |   |-- services/  business logic
-    |   |   |-- scripts/   CLI helpers (reset_password, list_users)
+    |   |   |-- scripts/   CLI helpers (reset_password, list_users,
+    |   |   |              seed_demo_data)
     |   |   |-- ai/        (Phase 18+)
     |   |-- alembic/       migrations
-    |   |-- tests/         pytest suite (97 tests)
+    |   |-- tests/         pytest suite (118 tests)
+    |   |-- uploads/       receipts stored here (gitignored)
     |   |-- requirements.txt
     |-- frontend/      React app
     |   |-- src/
     |   |   |-- api/       HTTP client + API modules
-    |   |   |-- components/Layout, ProtectedRoute, PasswordInput
+    |   |   |-- components/Layout, ProtectedRoute, PasswordInput,
+    |   |   |              ExportButton
     |   |   |-- context/   AuthContext, ThemeContext
     |   |   |-- pages/     All screens
     |   |   |-- test/      Vitest setup + helpers
@@ -146,9 +150,9 @@ Create the test database once:
 
 - Register with email + password (Argon2 hashing)
 - Login with JWT access token
-- **Forgot password** — reset link, 15-minute expiry, single-use
+- Forgot password — reset link, 15-minute expiry, single-use
 - 401 auto-logout with session-expired message
-- **Show/hide password** toggle on all password fields
+- Show/hide password toggle on all password fields
 
 ### Finance
 
@@ -160,6 +164,14 @@ Create the test database once:
 - **Budgets** — monthly limit per category, live usage tracking
 - **Dashboard** — total balance, monthly income/expense/net,
   top categories, recent transactions, 6-month trend
+
+### Analytics & Reports
+
+- **Analytics** — month-over-month comparison, category trends,
+  weekday heatmap, top accounts (Recharts)
+- **CSV exports** — transactions, accounts, budgets (one click)
+- **Receipts** — upload images/PDF (5 MB max), attach to a transaction,
+  download, delete
 
 ### UX
 
@@ -201,6 +213,27 @@ Transaction list supports: `account_id`, `category_id`, `kind`,
 - `GET /api/v1/dashboard/overview` (all sections in one call)
 - Also: `/summary`, `/by-category`, `/trend`, `/recent`
 
+### Analytics
+
+- `GET /api/v1/analytics/month-comparison`
+- `GET /api/v1/analytics/category-trend?category_id=X&months=6`
+- `GET /api/v1/analytics/top-accounts?months=3`
+- `GET /api/v1/analytics/weekday-heatmap?months=3`
+
+### Exports (CSV downloads)
+
+- `GET /api/v1/exports/transactions.csv`
+- `GET /api/v1/exports/accounts.csv`
+- `GET /api/v1/exports/budgets.csv?year=YYYY&month=M`
+
+### Receipts
+
+- `GET /api/v1/receipts`
+- `POST /api/v1/receipts` (multipart: file, transaction_id)
+- `GET /api/v1/receipts/{id}`
+- `GET /api/v1/receipts/{id}/download`
+- `DELETE /api/v1/receipts/{id}`
+
 ### Meta
 
 - `GET /health`
@@ -217,6 +250,10 @@ List all registered users:
 
     python -m app.scripts.list_users
 
+Seed demo data (accounts, transactions, budgets) for a user:
+
+    python -m app.scripts.seed_demo_data user@example.com
+
 ## Progress
 
 | Phase    | Scope                                    | Status |
@@ -225,14 +262,18 @@ List all registered users:
 | 12-13    | React + auth UI                          | Done ✅|
 | 14-15    | All frontend pages (MVP)                 | Done ✅|
 | Post-MVP | Forgot password, dark mode, responsive   | Done ✅|
-| 16-17    | Analytics, uploads, notifications        | Next   |
-| 18-20    | AI: RAG, chat, agent tools               |        |
+| 16-17    | Analytics, exports, receipts             | Done ✅|
+| 18-20    | AI: RAG, chat, agent tools               | Next   |
 | 21       | Testing and security sweep               |        |
 | 22       | Dockerization and deployment             |        |
 | 23       | Final QA and docs                        |        |
 
-**156 tests passing** (97 backend + 59 frontend).
-Tags: `v0.1.0-mvp`, `v0.1.1-forgot-password`.
+**180 tests passing** (118 backend + 62 frontend).
+
+Tags:
+- `v0.1.0-mvp`
+- `v0.1.1-forgot-password`
+- `v0.2.0-analytics-receipts`
 
 See `docs/PROJECT_LOG.md` for the full phase-by-phase record,
 decisions, troubleshooting, and command reference.
@@ -248,7 +289,9 @@ decisions, troubleshooting, and command reference.
 - Account balance is updated in the same DB transaction as the row.
 - Budget usage is computed live from transactions.
 - Recurring rules are generated on demand; `end_date` inclusive.
-- **Forgot password** in dev prints the reset link to backend console
+- Forgot password in dev prints the reset link to backend console
   (`DEBUG_RESET_LINKS=true`). In production this becomes an email send.
 - Password reset tokens: SHA-256 hashed, 15-min expiry, single-use,
   one active per user.
+- Receipt files live in `backend/uploads/receipts/` (gitignored).
+  In production this becomes object storage (Phase 22).

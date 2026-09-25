@@ -15,6 +15,7 @@ if TYPE_CHECKING:
     from app.models.password_reset_token import PasswordResetToken
     from app.models.recurring import RecurringRule
     from app.models.transaction import Transaction
+    from app.models.receipt import Receipt
 
 
 class User(Base):
@@ -71,6 +72,9 @@ class User(Base):
         back_populates="user",
         cascade="all, delete-orphan",
     )
-
+    receipts: Mapped[list[Receipt]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
     def __repr__(self) -> str:
         return f"<User id={self.id} email={self.email!r}>"

@@ -28,6 +28,10 @@ class Settings(BaseSettings):
     # sending email. Set to False in production.
     DEBUG_RESET_LINKS: bool = True
 
+    # File uploads
+    UPLOAD_DIR: str = "uploads"
+    MAX_UPLOAD_SIZE_MB: int = 5
+
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]

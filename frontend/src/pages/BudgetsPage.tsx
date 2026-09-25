@@ -3,6 +3,8 @@ import { useEffect, useState, type FormEvent } from "react";
 import { budgetsApi } from "../api/budgets";
 import { ApiError } from "../api/client";
 import { categoriesApi } from "../api/categories";
+import { exportsApi } from "../api/exports";
+import ExportButton from "../components/ExportButton";
 import { useAuth } from "../context/AuthContext";
 import type { Budget, Category } from "../types/api";
 
@@ -172,19 +174,22 @@ function BudgetsPage() {
     <div className="text-slate-900 dark:text-slate-100">
       <div className="flex flex-wrap gap-3 justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Budgets</h1>
-        <button
-          type="button"
-          onClick={openCreate}
-          disabled={availableCategories.length === 0}
-          className={btnPrimaryCls}
-          title={
-            availableCategories.length === 0
-              ? "All expense categories already have a budget this month"
-              : undefined
-          }
-        >
-          + Add budget
-        </button>
+        <div className="flex items-center gap-2">
+          <ExportButton onClick={() => exportsApi.budgets(year, month)} />
+          <button
+            type="button"
+            onClick={openCreate}
+            disabled={availableCategories.length === 0}
+            className={btnPrimaryCls}
+            title={
+              availableCategories.length === 0
+                ? "All expense categories already have a budget this month"
+                : undefined
+            }
+          >
+            + Add budget
+          </button>
+        </div>
       </div>
 
       <div

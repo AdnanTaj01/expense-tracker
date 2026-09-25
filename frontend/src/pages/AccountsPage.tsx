@@ -2,6 +2,8 @@ import { useEffect, useState, type FormEvent } from "react";
 
 import { accountsApi } from "../api/accounts";
 import { ApiError } from "../api/client";
+import { exportsApi } from "../api/exports";
+import ExportButton from "../components/ExportButton";
 import { useAuth } from "../context/AuthContext";
 import type { Account, AccountCreate } from "../types/api";
 
@@ -132,9 +134,12 @@ function AccountsPage() {
     <div className="text-slate-900 dark:text-slate-100">
       <div className="flex flex-wrap gap-3 justify-between items-center mb-6">
         <h1 className="text-2xl font-bold">Accounts</h1>
-        <button type="button" onClick={openCreate} className={btnPrimaryCls}>
-          + Add account
-        </button>
+        <div className="flex items-center gap-2">
+          <ExportButton onClick={() => exportsApi.accounts()} />
+          <button type="button" onClick={openCreate} className={btnPrimaryCls}>
+            + Add account
+          </button>
+        </div>
       </div>
 
       {error && (

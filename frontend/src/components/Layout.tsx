@@ -10,6 +10,8 @@ const navItems = [
   { to: "/accounts", label: "Accounts" },
   { to: "/categories", label: "Categories" },
   { to: "/budgets", label: "Budgets" },
+  { to: "/analytics", label: "Analytics" },
+  { to: "/receipts", label: "Receipts" },
 ];
 
 function Layout() {
