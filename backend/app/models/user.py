@@ -1,9 +1,20 @@
+from __future__ import annotations
+
 from datetime import datetime
+from typing import TYPE_CHECKING
 
 from sqlalchemy import Boolean, DateTime, String, func
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
+
+if TYPE_CHECKING:
+    from app.models.account import Account
+    from app.models.budget import Budget
+    from app.models.category import Category
+    from app.models.password_reset_token import PasswordResetToken
+    from app.models.recurring import RecurringRule
+    from app.models.transaction import Transaction
 
 
 class User(Base):
@@ -35,25 +46,31 @@ class User(Base):
         onupdate=func.now(),
     )
 
-    accounts: Mapped[list["Account"]] = relationship(  # noqa: F821
+    # Relationships
+    accounts: Mapped[list[Account]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
     )
-    categories: Mapped[list["Category"]] = relationship(  # noqa: F821
+    categories: Mapped[list[Category]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
     )
-    transactions: Mapped[list["Transaction"]] = relationship(  # noqa: F821
+    transactions: Mapped[list[Transaction]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
     )
-    budgets: Mapped[list["Budget"]] = relationship(  # noqa: F821
+    budgets: Mapped[list[Budget]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
     )
-    recurring_rules: Mapped[list["RecurringRule"]] = relationship(  # noqa: F821
+    recurring_rules: Mapped[list[RecurringRule]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
     )
+    reset_tokens: Mapped[list[PasswordResetToken]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+
     def __repr__(self) -> str:
         return f"<User id={self.id} email={self.email!r}>"

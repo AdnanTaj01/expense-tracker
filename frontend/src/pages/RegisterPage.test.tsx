@@ -18,9 +18,13 @@ function setupAuth(registerImpl: (...args: unknown[]) => Promise<unknown>) {
     user: null,
     isAuthenticated: false,
     isLoading: false,
+    sessionExpired: false,
     login: vi.fn(),
     register: registerImpl as never,
     logout: vi.fn(),
+    clearSessionExpired: vi.fn(),
+    forgotPassword: vi.fn(),
+    resetPassword: vi.fn(),
   });
 }
 
@@ -33,8 +37,8 @@ describe("RegisterPage", () => {
       routerProps: { initialEntries: ["/register"] },
     });
 
-    await userEvent.type(screen.getByLabelText(/email/i), "a@b.com");
-    await userEvent.type(screen.getByLabelText(/password/i), "short");
+    await userEvent.type(screen.getByLabelText(/^email$/i), "a@b.com");
+    await userEvent.type(screen.getByLabelText(/^password$/i), "short");
     await userEvent.click(
       screen.getByRole("button", { name: /create account/i }),
     );
@@ -58,8 +62,11 @@ describe("RegisterPage", () => {
     );
 
     await userEvent.type(screen.getByLabelText(/full name/i), "Adnan");
-    await userEvent.type(screen.getByLabelText(/email/i), "a@b.com");
-    await userEvent.type(screen.getByLabelText(/password/i), "strongpass123");
+    await userEvent.type(screen.getByLabelText(/^email$/i), "a@b.com");
+    await userEvent.type(
+      screen.getByLabelText(/^password$/i),
+      "strongpass123",
+    );
     await userEvent.click(
       screen.getByRole("button", { name: /create account/i }),
     );

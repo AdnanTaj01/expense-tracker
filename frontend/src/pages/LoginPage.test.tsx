@@ -23,6 +23,8 @@ function setupAuth(loginImpl: (...args: unknown[]) => Promise<unknown>) {
     register: vi.fn(),
     logout: vi.fn(),
     clearSessionExpired: vi.fn(),
+    forgotPassword: vi.fn(),
+    resetPassword: vi.fn(),
   });
 }
 
@@ -31,8 +33,8 @@ describe("LoginPage", () => {
     setupAuth(vi.fn());
     renderWithProviders(<LoginPage />);
 
-    expect(screen.getByLabelText(/email/i)).toBeInTheDocument();
-    expect(screen.getByLabelText(/password/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^email$/i)).toBeInTheDocument();
+    expect(screen.getByLabelText(/^password$/i)).toBeInTheDocument();
     expect(
       screen.getByRole("button", { name: /sign in/i }),
     ).toBeInTheDocument();
@@ -48,12 +50,20 @@ describe("LoginPage", () => {
       register: vi.fn(),
       logout: vi.fn(),
       clearSessionExpired: vi.fn(),
+      forgotPassword: vi.fn(),
+      resetPassword: vi.fn(),
     });
 
     renderWithProviders(<LoginPage />);
 
+    expect(screen.getByText(/your session expired/i)).toBeInTheDocument();
+  });
+
+  it("shows forgot password link", () => {
+    setupAuth(vi.fn());
+    renderWithProviders(<LoginPage />);
     expect(
-      screen.getByText(/your session expired/i),
+      screen.getByRole("link", { name: /forgot password/i }),
     ).toBeInTheDocument();
   });
 
@@ -69,8 +79,8 @@ describe("LoginPage", () => {
       { routerProps: { initialEntries: ["/login"] } },
     );
 
-    await userEvent.type(screen.getByLabelText(/email/i), "a@b.com");
-    await userEvent.type(screen.getByLabelText(/password/i), "passw0rd");
+    await userEvent.type(screen.getByLabelText(/^email$/i), "a@b.com");
+    await userEvent.type(screen.getByLabelText(/^password$/i), "passw0rd");
     await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => {
@@ -92,8 +102,8 @@ describe("LoginPage", () => {
       routerProps: { initialEntries: ["/login"] },
     });
 
-    await userEvent.type(screen.getByLabelText(/email/i), "a@b.com");
-    await userEvent.type(screen.getByLabelText(/password/i), "wrong");
+    await userEvent.type(screen.getByLabelText(/^email$/i), "a@b.com");
+    await userEvent.type(screen.getByLabelText(/^password$/i), "wrong");
     await userEvent.click(screen.getByRole("button", { name: /sign in/i }));
 
     await waitFor(() => {

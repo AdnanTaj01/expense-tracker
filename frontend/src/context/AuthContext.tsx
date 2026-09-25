@@ -15,7 +15,12 @@ import {
   setOnUnauthorized,
   setToken,
 } from "../api/client";
-import type { User, UserCreate } from "../types/api";
+import type {
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
+  User,
+  UserCreate,
+} from "../types/api";
 
 interface AuthContextValue {
   user: User | null;
@@ -26,7 +31,8 @@ interface AuthContextValue {
   register: (payload: UserCreate) => Promise<void>;
   logout: () => void;
   clearSessionExpired: () => void;
-  changePassword: (current: string, newPw: string) => Promise<void>;
+  forgotPassword: (email: string) => Promise<void>;
+  resetPassword: (token: string, newPassword: string) => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextValue | null>(null);
@@ -36,8 +42,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
   const [isLoading, setIsLoading] = useState(true);
   const [sessionExpired, setSessionExpired] = useState(false);
 
-  // Register the 401 handler once. When it fires, we clear local state;
-  // ProtectedRoute then redirects to /login automatically.
   useEffect(() => {
     setOnUnauthorized(() => {
       clearToken();
@@ -47,7 +51,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     return () => setOnUnauthorized(null);
   }, []);
 
-  // On mount: if a token exists, try to fetch the current user.
   useEffect(() => {
     const token = getToken();
     if (!token) {
@@ -74,7 +77,6 @@ export function AuthProvider({ children }: { children: ReactNode }) {
 
   const register = useCallback(async (payload: UserCreate) => {
     await authApi.register(payload);
-    // Auto-login after registration.
     const token = await authApi.login(payload.email, payload.password);
     setToken(token.access_token);
     const me = await authApi.me();
@@ -92,12 +94,18 @@ export function AuthProvider({ children }: { children: ReactNode }) {
     setSessionExpired(false);
   }, []);
 
-  const changePassword = useCallback(
-    async (current: string, newPw: string) => {
-      await authApi.changePassword({
-        current_password: current,
-        new_password: newPw,
-      });
+  const forgotPassword = useCallback(async (email: string) => {
+    const payload: ForgotPasswordRequest = { email };
+    await authApi.forgotPassword(payload);
+  }, []);
+
+  const resetPassword = useCallback(
+    async (token: string, newPassword: string) => {
+      const payload: ResetPasswordRequest = {
+        token,
+        new_password: newPassword,
+      };
+      await authApi.resetPassword(payload);
     },
     [],
   );
@@ -112,7 +120,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       register,
       logout,
       clearSessionExpired,
-      changePassword,
+      forgotPassword,
+      resetPassword,
     }),
     [
       user,
@@ -122,7 +131,8 @@ export function AuthProvider({ children }: { children: ReactNode }) {
       register,
       logout,
       clearSessionExpired,
-      changePassword,
+      forgotPassword,
+      resetPassword,
     ],
   );
 

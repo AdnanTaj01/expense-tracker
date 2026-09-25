@@ -3,6 +3,7 @@ import { MemoryRouter, type MemoryRouterProps } from "react-router-dom";
 import type { ReactElement, ReactNode } from "react";
 
 import { AuthProvider } from "../context/AuthContext";
+import { ThemeProvider } from "../context/ThemeContext";
 
 interface Options extends Omit<RenderOptions, "wrapper"> {
   routerProps?: MemoryRouterProps;
@@ -15,7 +16,9 @@ export function renderWithProviders(
   function Wrapper({ children }: { children: ReactNode }) {
     return (
       <MemoryRouter {...routerProps}>
-        <AuthProvider>{children}</AuthProvider>
+        <ThemeProvider>
+          <AuthProvider>{children}</AuthProvider>
+        </ThemeProvider>
       </MemoryRouter>
     );
   }
@@ -23,6 +26,5 @@ export function renderWithProviders(
   return render(ui, { wrapper: Wrapper, ...renderOptions });
 }
 
-// Re-export everything from RTL so tests import from one place.
 export * from "@testing-library/react";
 export { default as userEvent } from "@testing-library/user-event";

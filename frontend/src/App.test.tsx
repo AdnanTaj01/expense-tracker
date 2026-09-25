@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
+import { ThemeProvider } from "./context/ThemeContext";
 
 // Mock AuthProvider as passthrough and useAuth per-test.
 vi.mock("./context/AuthContext", () => ({
@@ -44,7 +45,6 @@ const anonValue = {
   changePassword: vi.fn(),
 };
 
-// Minimal valid overview payload so the dashboard renders.
 const emptyOverview = {
   summary: {
     year: 2026,
@@ -79,7 +79,11 @@ function setUrl(path: string) {
 }
 
 function renderApp() {
-  return render(<App />);
+  return render(
+    <ThemeProvider>
+      <App />
+    </ThemeProvider>,
+  );
 }
 
 describe("App routing", () => {

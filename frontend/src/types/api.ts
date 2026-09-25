@@ -19,8 +19,12 @@ export interface UserCreate {
   currency?: string;
 }
 
-export interface ChangePasswordPayload {
-  current_password: string;
+export interface ForgotPasswordRequest {
+  email: string;
+}
+
+export interface ResetPasswordRequest {
+  token: string;
   new_password: string;
 }
 
@@ -36,6 +40,20 @@ export interface Account {
   updated_at: string;
 }
 
+export interface AccountCreate {
+  name: string;
+  type: "checking" | "savings" | "cash" | "credit_card" | "wallet";
+  currency?: string;
+  balance?: string;
+}
+
+export interface AccountUpdate {
+  name?: string;
+  type?: "checking" | "savings" | "cash" | "credit_card" | "wallet";
+  currency?: string;
+  is_active?: boolean;
+}
+
 export interface Category {
   id: number;
   user_id: number;
@@ -44,6 +62,16 @@ export interface Category {
   is_default: boolean;
   created_at: string;
   updated_at: string;
+}
+
+export interface CategoryCreate {
+  name: string;
+  kind: "income" | "expense";
+}
+
+export interface CategoryUpdate {
+  name?: string;
+  kind?: "income" | "expense";
 }
 
 export interface Transaction {
@@ -57,6 +85,24 @@ export interface Transaction {
   occurred_at: string;
   created_at: string;
   updated_at: string;
+}
+
+export interface TransactionCreate {
+  account_id: number;
+  category_id?: number | null;
+  kind: "income" | "expense";
+  amount: string;
+  note?: string | null;
+  occurred_at: string;
+}
+
+export interface TransactionUpdate {
+  account_id?: number;
+  category_id?: number | null;
+  kind?: "income" | "expense";
+  amount?: string;
+  note?: string | null;
+  occurred_at?: string;
 }
 
 export interface TransactionList {

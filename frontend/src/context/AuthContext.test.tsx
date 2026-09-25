@@ -13,7 +13,8 @@ function Consumer() {
     login,
     register,
     logout,
-    changePassword,
+    forgotPassword,
+    resetPassword,
     clearSessionExpired,
   } = useAuth();
   return (
@@ -29,8 +30,9 @@ function Consumer() {
         register
       </button>
       <button onClick={logout}>logout</button>
-      <button onClick={() => changePassword("old", "newpassword")}>
-        change-password
+      <button onClick={() => forgotPassword("a@b.com")}>forgot</button>
+      <button onClick={() => resetPassword("token-xyz", "newpassword")}>
+        reset
       </button>
       <button onClick={clearSessionExpired}>clear-expired</button>
     </div>
@@ -182,18 +184,8 @@ describe("AuthContext", () => {
     expect(localStorage.getItem("access_token")).toBeNull();
   });
 
-  it("changePassword calls the backend endpoint", async () => {
-    setToken("existing");
-    fetchMock.mockResolvedValueOnce(
-      jsonResponse({
-        id: 1,
-        email: "x@y.com",
-        full_name: null,
-        currency: "PKR",
-        is_active: true,
-        created_at: "2026-01-01T00:00:00Z",
-      }),
-    );
+  it("forgotPassword calls the backend endpoint", async () => {
+    fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
 
     render(
       <AuthProvider>
@@ -202,20 +194,39 @@ describe("AuthContext", () => {
     );
 
     await waitFor(() =>
-      expect(screen.getByTestId("authed").textContent).toBe("true"),
+      expect(screen.getByTestId("loading").textContent).toBe("false"),
     );
 
+    screen.getByText("forgot").click();
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:8000/api/v1/auth/forgot-password");
+    expect(init.method).toBe("POST");
+    expect(JSON.parse(init.body as string)).toEqual({ email: "a@b.com" });
+  });
+
+  it("resetPassword calls the backend endpoint", async () => {
     fetchMock.mockResolvedValueOnce(new Response(null, { status: 204 }));
 
-    screen.getByText("change-password").click();
+    render(
+      <AuthProvider>
+        <Consumer />
+      </AuthProvider>,
+    );
 
-    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(2));
+    await waitFor(() =>
+      expect(screen.getByTestId("loading").textContent).toBe("false"),
+    );
 
-    const [url, init] = fetchMock.mock.calls[1];
-    expect(url).toBe("http://localhost:8000/api/v1/auth/change-password");
+    screen.getByText("reset").click();
+
+    await waitFor(() => expect(fetchMock).toHaveBeenCalledTimes(1));
+    const [url, init] = fetchMock.mock.calls[0];
+    expect(url).toBe("http://localhost:8000/api/v1/auth/reset-password");
     expect(init.method).toBe("POST");
     expect(JSON.parse(init.body as string)).toEqual({
-      current_password: "old",
+      token: "token-xyz",
       new_password: "newpassword",
     });
   });
@@ -227,5 +238,5 @@ describe("AuthContext", () => {
   });
 });
 
-// Keep TS happy — clearToken is used indirectly by tests through localStorage.
+// Keep TS happy — clearToken is used indirectly via localStorage in tests.
 void clearToken;

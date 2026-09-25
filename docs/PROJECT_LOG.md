@@ -1,6 +1,6 @@
 # Expense Tracker — Master Project Log
 
-Last updated: Phase 13 complete (2026-09-24)
+Last updated: Forgot password + dark mode + responsive (Post-MVP) — 2026-09-25
 
 Ye file project ka single source of truth hai. Isme project ka
 overview, decisions, setup steps, har phase ka record, aur
@@ -23,8 +23,11 @@ Core idea:
 Rule: App AI ke bina bhi chalti hai. LLM sirf explain karta hai,
 woh source of truth nahi hai.
 
-Backend MVP (Phases 0-11) complete. Frontend auth (Phases 12-13)
-complete. 90 backend tests + 29 frontend tests, sab pass.
+**Backend MVP (Phases 0-11) complete.**
+**Frontend MVP (Phases 12-15) complete.**
+**Post-MVP polish (forgot password, dark mode, responsive) complete.**
+**156 tests passing (97 backend + 59 frontend).**
+**Tags: v0.1.0-mvp, v0.1.1-forgot-password**
 
 ---
 
@@ -59,6 +62,7 @@ Frontend layering:
 - Pages -> components + hooks + context
 - API modules (api/*.ts) -> client.ts -> fetch
 - Types (types/api.ts) -> shared across frontend
+- ThemeProvider + AuthProvider wrappers in main.tsx
 
 ---
 
@@ -85,6 +89,9 @@ Frontend layering:
 10. Frontend: Vite + React Router + TypeScript + Tailwind.
     Filhal koi extra lib nahi (TanStack Query, React Hook Form
     optional hain - Phase 14+ mein decide karenge).
+11. Forgot password: token-based reset with SHA-256 hashed tokens,
+    15-min expiry, single-use. Dev mein link console par print
+    hota hai; production mein SMTP add karenge.
 
 ---
 
@@ -136,37 +143,48 @@ Command convention:
     |   |       |-- e78852c3c6d5_create_transactions_table.py
     |   |       |-- fdaed5992445_create_budgets_table.py
     |   |       |-- a157bb4870e3_create_recurring_rules_table.py
+    |   |       |-- 585c4f1e42f7_create_password_reset_tokens_table.py
     |   |   |-- app/
     |   |   |   |-- main.py
     |   |   |   |-- core/ (config.py, security.py)
     |   |   |   |-- db/ (base.py, session.py)
     |   |   |   |-- models/ (user, account, category,
-    |   |   |   |           transaction, budget, recurring)
+    |   |   |   |           transaction, budget, recurring,
+    |   |   |   |           password_reset_token)
     |   |   |   |-- schemas/ (user, auth, account, category,
     |   |   |   |            transaction, budget, recurring, dashboard)
     |   |   |   |-- services/ (user, account, category, transaction,
-    |   |   |   |             budget, recurring, dashboard)
+    |   |   |   |             budget, recurring, dashboard,
+    |   |   |   |             password_reset_service)
     |   |   |   |-- api/ (deps.py, v1/{auth, accounts, categories,
     |   |   |   |         transactions, budgets, recurring, dashboard})
+    |   |   |   |-- scripts/ (list_users.py, reset_password.py)
     |   |   |   |-- ai/ (Phase 18+)
-    |   |   |-- tests/ (90 tests)
+    |   |   |-- tests/ (97 tests)
     |   |-- uploads/            (gitignored)
     |-- frontend/
     |   |-- .env, .env.example
+    |   |-- .vscode/settings.json
     |   |-- package.json, package-lock.json
     |   |-- vite.config.ts (includes Vitest config)
     |   |-- tsconfig.json, tsconfig.node.json
     |   |-- index.html
     |   |-- src/
-    |   |   |-- main.tsx
+    |   |   |-- main.tsx         (mount + ThemeProvider + AuthProvider)
     |   |   |-- App.tsx
-    |   |   |-- index.css
-    |   |   |-- api/ (client.ts, auth.ts, client.test.ts)
-    |   |   |-- components/ (Layout.tsx, ProtectedRoute.tsx + tests)
-    |   |   |-- context/ (AuthContext.tsx + tests)
-    |   |   |-- pages/ (Login, Register, Dashboard, Accounts,
+    |   |   |-- index.css        (Tailwind v4 + dark variant)
+    |   |   |-- vite-env.d.ts
+    |   |   |-- api/ (client.ts, auth.ts, dashboard.ts,
+    |   |   |         accounts.ts, categories.ts,
+    |   |   |         transactions.ts, budgets.ts,
+    |   |   |         client.test.ts)
+    |   |   |-- components/ (Layout.tsx, ProtectedRoute.tsx,
+    |   |   |                PasswordInput.tsx + tests)
+    |   |   |-- context/ (AuthContext.tsx, ThemeContext.tsx + tests)
+    |   |   |-- pages/ (Login, Register, ForgotPassword,
+    |   |   |           ResetPassword, Dashboard, Accounts,
     |   |   |           Categories, Budgets, Transactions,
-    |   |   |           ChangePassword, NotFound + tests)
+    |   |   |           NotFound + tests)
     |   |   |-- test/ (setup.ts, utils.tsx)
     |   |   |-- types/ (api.ts)
     |   |-- coverage/           (gitignored, HTML+LCov reports)
@@ -192,6 +210,8 @@ Note: POSTGRES_HOST_PORT=5433 (not 5432).
     JWT_SECRET_KEY=<64-byte-url-safe-string>
     ACCESS_TOKEN_EXPIRE_MINUTES=30
     CORS_ORIGINS=http://localhost:5173
+    FRONTEND_URL=http://localhost:5173
+    DEBUG_RESET_LINKS=true
 
 Password encoding (URL):
 
@@ -206,6 +226,10 @@ Password encoding (URL):
 
 Encode: python -c "import urllib.parse; print(urllib.parse.quote('RAW', safe=''))"
 JWT:    python -c "import secrets; print(secrets.token_urlsafe(64))"
+
+`DEBUG_RESET_LINKS=true` -> forgot-password link backend console
+par print hota hai. Production mein `false` karein aur SMTP
+configure karein (Phase 16+).
 
 ### Frontend frontend/.env (optional)
 
@@ -313,7 +337,6 @@ Python 3.13.15, Node 24, Git, Docker, VS Code extensions install.
 ### Phase 9 - Transactions (Done)
 - Model: transaction (amount positive, kind determines sign)
 - Service: transaction_service with safe balance updates
-  (create/update/delete all adjust balance in one commit)
 - Endpoints: /api/v1/transactions (filters, pagination)
 - 18 new tests (43 total), including balance integrity
 - Masla: test expectation 1200 vs 1100 (test ghalat tha)
@@ -322,7 +345,6 @@ Python 3.13.15, Node 24, Git, Docker, VS Code extensions install.
 ### Phase 10 - Budgets aur Recurring (Done)
 - Models: budget, recurring
 - Services: budget_service (live usage), recurring_service
-  (generate_due_transactions, end_date inclusive, safety cap)
 - Endpoints: /api/v1/budgets (5), /api/v1/recurring (5 + /generate)
 - 32 new tests (75 total)
 - Masle: quantize Decimal, end_date inclusive, uvicorn module cache
@@ -339,49 +361,115 @@ Python 3.13.15, Node 24, Git, Docker, VS Code extensions install.
 
 ### Phase 12 - React Foundation (Done)
 - Vite 7 + React 19 + TypeScript 5.6 + Tailwind 4
-- Files: package.json, vite.config.ts, tsconfig.json,
-  tsconfig.node.json, index.html
-- src:
-  - main.tsx (mount + AuthProvider wrap)
-  - App.tsx (BrowserRouter + Routes with ProtectedRoute)
-  - api/client.ts (fetch wrapper, ApiError, token storage)
-  - api/auth.ts (register, login, me)
-  - context/AuthContext.tsx (login/logout/register/isLoading)
-  - components/Layout.tsx (navbar + Outlet)
-  - components/ProtectedRoute.tsx (redirect to /login)
-  - pages: Login, Register, Dashboard, Accounts, Categories,
-    Budgets, Transactions, NotFound
-  - test/{setup.ts, utils.tsx}
-  - types/api.ts (backend schemas as TS types)
-- Testing: Vitest + React Testing Library + jsdom + jest-dom
+- package.json, vite.config.ts, tsconfig.json, tsconfig.node.json,
+  index.html
+- src: main.tsx, App.tsx, api/client.ts, api/auth.ts,
+  context/AuthContext.tsx, components/Layout.tsx,
+  components/ProtectedRoute.tsx, pages (Login, Register, Dashboard,
+  Accounts, Categories, Budgets, Transactions, NotFound),
+  test/{setup.ts, utils.tsx}, types/api.ts
+- Vitest + React Testing Library + jsdom + jest-dom
 - V8 coverage: HTML + LCOV + JSON summary
-- JUnit XML: test-results/junit.xml
-- 27 tests passing (6 files)
-- Coverage: 89.59% stmts, 85.54% branches
-- End-to-end verified: browser -> register -> login -> dashboard
-- Masle:
-  1. Label/input linking -> htmlFor/id
-  2. App.test Router-in-Router -> plain render + pushState
-  3. esbuild postinstall warning -> npm approve-scripts esbuild
-  4. tsconfig baseUrl deprecation -> removed
+- 27 tests passing
+- Masle: htmlFor/id linking, Router-in-Router, esbuild scripts,
+  tsconfig baseUrl
 - Commit: beb7b10
 
 ### Phase 13 - Auth Polish + Change Password (Done)
-- 401 auto-logout: client.ts fires callback on 401 for authenticated
-  requests. AuthContext clears token, sets sessionExpired.
-  ProtectedRoute redirects to /login.
-- LoginPage shows amber "session expired" banner when flagged.
-- New ChangePasswordPage wired to POST /api/v1/auth/change-password.
-- Layout has profile dropdown (avatar + name + email,
-  Change password, Logout). Closes on outside click.
-- AuthContext exposes changePassword(current, newPw).
-- authApi.changePassword(payload) added.
-- Types: ChangePasswordPayload added.
-- 2 new tests (session-expired banner + changePassword flow).
-  29 tests total.
-- Manual end-to-end verified: wrong current, short pw, mismatch,
-  success, login with new password.
+- 401 auto-logout via client.ts callback
+- AuthContext sessionExpired flag
+- LoginPage amber session-expired banner
+- New ChangePasswordPage (later removed)
+- Layout profile dropdown (avatar, name, email, change pw, logout)
+- AuthContext changePassword; authApi changePassword
+- Types: ChangePasswordPayload
+- 2 new tests (29 total)
+- Masle: test mock values mein naye fields add karne the
+- Commit: 505b8b0
+
+### Phase 14-15 - All Frontend Pages / MVP Checkpoint (Done)
+- API modules added: dashboard.ts, accounts.ts, categories.ts,
+  transactions.ts, budgets.ts
+- Types: AccountCreate/Update, CategoryCreate/Update,
+  TransactionCreate/Update added
+- DashboardPage — real summary, top categories, recent
+  transactions, 6-month trend bars
+- AccountsPage — list, create, edit, delete (modal form)
+- CategoriesPage — income/expense columns, filter, CRUD
+- TransactionsPage — table, filters (account, category, kind,
+  date range), pagination, create/edit/delete
+- BudgetsPage — month navigation, live usage bars,
+  over-budget red highlight
+- Each page: loading state, error state, empty state
+- 28 new frontend tests (57 total)
+- Manual end-to-end verified across all pages
+- MVP CHECKPOINT: the whole finance app works without AI
+- Tag: v0.1.0-mvp
+- Commit: 4ff6131
+
+### Post-MVP Polish - Forgot Password + Dark Mode + Responsive (Done)
+
+**Backend: Forgot password flow**
+- New model `PasswordResetToken` (SHA-256 hashed, 15-min expiry,
+  single-use, one active per user)
+- Migration: `585c4f1e42f7_create_password_reset_tokens_table.py`
+- Service: `password_reset_service.py` (create_reset_token +
+  consume_reset_token)
+- Endpoints:
+  - `POST /api/v1/auth/forgot-password` (always 204 — no user
+    enumeration)
+  - `POST /api/v1/auth/reset-password` (validates token, sets new
+    password, marks used)
+- In dev, reset link prints to backend console
+  (`DEBUG_RESET_LINKS=true`)
+- 7 new tests. **97 backend tests total.**
+
+**Frontend: Forgot password flow**
+- New `PasswordInput` component with show/hide eye toggle
+  (accessible: aria-label, aria-pressed, tabIndex=-1)
+- New pages: `ForgotPasswordPage`, `ResetPasswordPage`
+- `LoginPage` gets "Forgot password?" link and `passwordReset`
+  green banner (after successful reset)
+- `RegisterPage` uses `PasswordInput`
+- `ChangePasswordPage` **removed** (replaced by forgot-password
+  flow)
+- Layout dropdown now shows only email + Logout
+- `AuthContext` exposes `forgotPassword` + `resetPassword`
+- `authApi.forgotPassword` + `authApi.resetPassword`
+- Types: `ForgotPasswordRequest`, `ResetPasswordRequest`
+- 2 new AuthContext tests. **59 frontend tests total.**
+
+**Theme system**
+- New `ThemeContext` (light/dark, localStorage persistence,
+  `prefers-color-scheme` default on first visit)
+- `ThemeProvider` wraps app in `main.tsx`
+- Toggle icon in navbar (desktop + mobile)
+- Tailwind v4: `@custom-variant dark` in `index.css`
+- `html.dark` color-scheme + body background
+
+**Responsive**
+- Mobile hamburger menu (nav links + profile + logout)
+- Tables scroll horizontally on small screens
+- Modals responsive (max-w-md, py-6, overflow-y-auto)
+- Padding `p-6 sm:p-8` throughout
+- Nav links hidden on mobile, hamburger menu
+
+**Dark mode across all pages** — Dashboard, Transactions,
+Accounts, Categories, Budgets, Login, Register, Forgot,
+Reset, 404, Layout, all modals
+
+**Troubleshooting added:**
+- `window.matchMedia is not a function` in jsdom → stub in
+  `test/setup.ts`
+- `getByLabelText(/password/i)` ambiguity (matches "Show password"
+  button) → use anchored regex `/^password$/i`
+- SQLAlchemy forward references → `from __future__ import annotations`
+  + `if TYPE_CHECKING:` imports
+- `ChangePassword` schema still exists in backend (kept for
+  backward compatibility) but frontend no longer uses it
+
 - Commit: (pending)
+- Tag: v0.1.1-forgot-password (pending)
 
 ---
 
@@ -399,6 +487,8 @@ Python 3.13.15, Node 24, Git, Docker, VS Code extensions install.
 | POST   | /api/v1/auth/login            | No   |
 | GET    | /api/v1/auth/me               | Yes  |
 | POST   | /api/v1/auth/change-password  | Yes  |
+| POST   | /api/v1/auth/forgot-password  | No   |
+| POST   | /api/v1/auth/reset-password   | No   |
 
 ### Accounts
 | Method | Path                          | Auth |
@@ -503,6 +593,18 @@ Python 3.13.15, Node 24, Git, Docker, VS Code extensions install.
     npm run test:ui             # browser UI
     npm run test:coverage       # coverage reports
 
+### Password reset (CLI fallback)
+
+Agar forgot-password flow se reset nahi ho pa raha:
+
+    cd backend
+    python -m app.scripts.reset_password user@example.com NewPass123!
+
+### Users list
+
+    cd backend
+    python -m app.scripts.list_users
+
 ### Git workflow
 
     cd D:\dev\expense-tracker
@@ -587,19 +689,50 @@ baseUrl hata dein. TS 5.6+ mein paths without baseUrl works.
 
 ### Tailwind v4 arbitrary values suggestion
 Symptom: "The class max-w-[12rem] can be written as max-w-48".
-Fix: Tailwind v4 prefers canonical classes.
-     Replace max-w-[12rem] with max-w-48 (1rem = 4 units).
+Fix: Replace max-w-[12rem] with max-w-48 (1rem = 4 units).
 
 ### Frontend: PowerShell mein file content paste ho gaya
 Symptom: PSReadLine crash ya unknown command.
-Fix: Ye harmless hai, sirf screen history ka error.
-     Aage: file content sirf VS Code mein paste karein
-     (code <path> command chalayein, phir paste karein).
+Fix: Ye harmless hai. Aage: file content sirf VS Code mein
+     paste karein.
 
 ### Frontend test: "clearSessionExpired is not a function"
 Symptom: mocked useAuth value mein naye fields nahi.
-Fix: Test ke mock mein sessionExpired aur clearSessionExpired
-     (aur baad mein changePassword) add karein.
+Fix: Test mock mein saare naye fields add karein
+     (sessionExpired, clearSessionExpired, forgotPassword,
+     resetPassword).
+
+### Dashboard test: "Found multiple elements with text: /5,000/"
+Symptom: Rs 5,000 do jagah (Month Income card + Salary tx).
+Fix: getAllByText use karein ya assertion specific karein.
+
+### App.test fails after Dashboard fetches data
+Symptom: "welcome, adnan" nahi milta, "Failed to load dashboard".
+Fix: App.test mein fetch mock karein (emptyOverview return kare).
+
+### jsdom: "window.matchMedia is not a function"
+Symptom: ThemeProvider crashes; many tests fail.
+Fix: Add a matchMedia stub in `src/test/setup.ts`.
+
+### Testing Library: getByLabelText(/password/i) is ambiguous
+Symptom: "Found multiple elements with the text of: /password/i"
+Fix: The "Show password" toggle button also has an aria-label
+     containing "password". Use anchored regex: `/^password$/i`.
+
+### SQLAlchemy: "User is not defined" / Pylance warnings
+Symptom: Pylance reports undefined forward-referenced types.
+Fix: Add `from __future__ import annotations` and use
+     `if TYPE_CHECKING:` imports for related models.
+
+### Forgot password — reset link missing in browser
+Symptom: No email arrives (expected in dev).
+Fix: Check backend console. `DEBUG_RESET_LINKS=true` in `.env`
+     prints the reset URL to stdout. Copy and paste it in browser.
+
+### Password field not visible in dark mode
+Symptom: Text invisible in dark theme.
+Fix: Ensure input has `dark:bg-slate-800 dark:text-slate-100`
+     classes. Same for card, table, borders.
 
 ---
 
@@ -644,26 +777,45 @@ Tip: Start Docker Desktop when you sign in.
 - 401 par AuthContext sessionExpired set karta hai; LoginPage
   amber banner dikhata hai; callback client.ts se fire hota hai.
 - Profile dropdown Layout mein hai; click-outside se band hota hai.
-- ChangePassword backend already Phase 7 mein thi; Phase 13 mein
-  frontend wiring ki.
+- ChangePassword schema backend mein rakha hai (backward compat)
+  lekin frontend ab use nahi karta.
+- Forgot password: 15-min expiry, single-use, SHA-256 hashed.
+- Forgot password: naya request purane unused tokens ko invalid
+  kar deta hai.
+- Password fields: `PasswordInput` component with show/hide eye.
+- Theme: localStorage mein `theme` key; `prefers-color-scheme`
+  default on first visit.
+- Dark mode: Tailwind v4 `@custom-variant dark` — class based
+  (`.dark` on `<html>`).
+- Modal `z-30`, dropdown `z-20` — dropdown modal ke andar kaam
+  nahi karta, isliye modal mein confirm prompts browser-level
+  hain.
+- Mobile: hamburger menu `md:hidden`, desktop nav `hidden md:flex`.
 
 ---
 
 ## 15. Roadmap (aage kya)
 
+**Post-MVP polish done:** forgot password, dark mode, responsive.
+
 | Phase | Scope                                    | Est. days |
 |-------|------------------------------------------|-----------|
-| 14-15 | Dashboard, transactions, all UI screens  | 4         |
 | 16-17 | Analytics, PDF/CSV, uploads, notifs      | 2         |
 | 18-20 | RAG, AI chat, agent tools                | 4         |
 | 21    | Testing aur security sweep               | 1         |
 | 22    | Dockerization aur deployment             | 2         |
 | 23    | Final QA aur docs                        | 1         |
 
-MVP checkpoint: Phase 15 ke end mein.
+**MVP + polish complete:**
+- Backend MVP complete at Phase 11 (90 tests)
+- Frontend MVP complete at Phase 15 (57 tests)
+- Post-MVP polish complete (97 + 59 = 156 tests)
+- Git tags: v0.1.0-mvp, v0.1.1-forgot-password
 
-Backend MVP complete at Phase 11 (90 tests).
-Frontend auth complete at Phase 13 (29 tests).
+Next natural steps:
+- Phase 18-20 (AI) — sab se interesting
+- Phase 22 (deployment) — production par live
+- Phase 16-17 (analytics + uploads) — additional polish
 
 ---
 

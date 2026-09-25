@@ -1,6 +1,7 @@
 import { api } from "./client";
 import type {
-  ChangePasswordPayload,
+  ForgotPasswordRequest,
+  ResetPasswordRequest,
   Token,
   User,
   UserCreate,
@@ -18,6 +19,9 @@ export const authApi = {
 
   me: (): Promise<User> => api.get<User>("/api/v1/auth/me", true),
 
-  changePassword: (payload: ChangePasswordPayload): Promise<void> =>
-    api.post<void>("/api/v1/auth/change-password", payload, true),
+  forgotPassword: (payload: ForgotPasswordRequest): Promise<void> =>
+    api.post<void>("/api/v1/auth/forgot-password", payload, false),
+
+  resetPassword: (payload: ResetPasswordRequest): Promise<void> =>
+    api.post<void>("/api/v1/auth/reset-password", payload, false),
 };

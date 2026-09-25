@@ -2,7 +2,11 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { ApiError } from "../api/client";
+import PasswordInput from "../components/PasswordInput";
 import { useAuth } from "../context/AuthContext";
+
+const inputCls =
+  "w-full px-3 py-2 border border-slate-300 dark:border-slate-700 rounded-md bg-white dark:bg-slate-800 text-slate-900 dark:text-slate-100 focus:outline-none focus:ring-2 focus:ring-slate-500";
 
 function RegisterPage() {
   const { register } = useAuth();
@@ -45,12 +49,12 @@ function RegisterPage() {
   }
 
   return (
-    <div className="min-h-screen bg-slate-50 flex items-center justify-center px-4 py-8">
-      <div className="w-full max-w-md bg-white rounded-lg shadow-md p-8">
-        <h1 className="text-2xl font-bold text-slate-800 mb-2">
+    <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center px-4 py-8 transition-colors">
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-lg shadow-md p-6 sm:p-8 border border-slate-200 dark:border-slate-800">
+        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-2">
           Create account
         </h1>
-        <p className="text-sm text-slate-500 mb-6">
+        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
           Start tracking your finances in one place.
         </p>
 
@@ -58,9 +62,12 @@ function RegisterPage() {
           <div>
             <label
               htmlFor="register-fullname"
-              className="block text-sm font-medium text-slate-700 mb-1"
+              className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1"
             >
-              Full name <span className="text-slate-400">(optional)</span>
+              Full name{" "}
+              <span className="text-slate-400 dark:text-slate-500">
+                (optional)
+              </span>
             </label>
             <input
               id="register-fullname"
@@ -68,7 +75,7 @@ function RegisterPage() {
               autoComplete="name"
               value={fullName}
               onChange={(e) => setFullName(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+              className={inputCls}
               placeholder="Adnan Taj"
             />
           </div>
@@ -76,7 +83,7 @@ function RegisterPage() {
           <div>
             <label
               htmlFor="register-email"
-              className="block text-sm font-medium text-slate-700 mb-1"
+              className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1"
             >
               Email
             </label>
@@ -87,7 +94,7 @@ function RegisterPage() {
               autoComplete="email"
               value={email}
               onChange={(e) => setEmail(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent"
+              className={inputCls}
               placeholder="you@example.com"
             />
           </div>
@@ -95,19 +102,17 @@ function RegisterPage() {
           <div>
             <label
               htmlFor="register-password"
-              className="block text-sm font-medium text-slate-700 mb-1"
+              className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1"
             >
               Password
             </label>
-            <input
+            <PasswordInput
               id="register-password"
-              type="password"
               required
               minLength={8}
               autoComplete="new-password"
               value={password}
               onChange={(e) => setPassword(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent"
               placeholder="At least 8 characters"
             />
           </div>
@@ -115,7 +120,7 @@ function RegisterPage() {
           <div>
             <label
               htmlFor="register-currency"
-              className="block text-sm font-medium text-slate-700 mb-1"
+              className="block text-sm font-medium text-slate-700 dark:text-slate-200 mb-1"
             >
               Currency
             </label>
@@ -123,7 +128,7 @@ function RegisterPage() {
               id="register-currency"
               value={currency}
               onChange={(e) => setCurrency(e.target.value)}
-              className="w-full px-3 py-2 border border-slate-300 rounded-md focus:outline-none focus:ring-2 focus:ring-slate-500 focus:border-transparent bg-white"
+              className={inputCls}
             >
               <option value="PKR">PKR — Pakistani Rupee</option>
               <option value="USD">USD — US Dollar</option>
@@ -135,7 +140,7 @@ function RegisterPage() {
           </div>
 
           {error && (
-            <div className="text-sm text-red-600 bg-red-50 border border-red-200 rounded-md px-3 py-2">
+            <div className="text-sm text-red-600 dark:text-red-300 bg-red-50 dark:bg-red-900/30 border border-red-200 dark:border-red-800 rounded-md px-3 py-2">
               {error}
             </div>
           )}
@@ -143,17 +148,17 @@ function RegisterPage() {
           <button
             type="submit"
             disabled={submitting}
-            className="w-full py-2 px-4 bg-slate-800 text-white rounded-md hover:bg-slate-700 disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
+            className="w-full py-2 px-4 bg-slate-800 dark:bg-slate-100 text-white dark:text-slate-900 rounded-md hover:bg-slate-700 dark:hover:bg-white disabled:opacity-50 disabled:cursor-not-allowed transition-colors"
           >
             {submitting ? "Creating account…" : "Create account"}
           </button>
         </form>
 
-        <p className="mt-6 text-sm text-slate-500 text-center">
+        <p className="mt-6 text-sm text-slate-500 dark:text-slate-400 text-center">
           Already have an account?{" "}
           <Link
             to="/login"
-            className="text-slate-800 font-medium hover:underline"
+            className="text-slate-800 dark:text-slate-100 font-medium hover:underline"
           >
             Sign in
           </Link>
