@@ -2,7 +2,8 @@
 
 A multi-user personal finance system with an optional AI assistant.
 
-**MVP complete.** The whole finance app works without any AI.
+**MVP complete + post-MVP polish.** The whole finance app works without
+any AI.
 
 The app works when the AI is down. The LLM explains results; it is never
 the source of truth.
@@ -15,7 +16,7 @@ the source of truth.
 - **ORM / migrations:** SQLAlchemy 2.x (sync) + Alembic + psycopg 3
 - **Auth:** JWT (PyJWT) + Argon2 (pwdlib)
 - **AI:** LLM provider TBD + RAG via pgvector — Phase 18+
-- **Testing:** pytest (90 backend tests) + Vitest (57 frontend tests)
+- **Testing:** pytest (97 backend tests) + Vitest (59 frontend tests)
 
 ## Architecture rule
 
@@ -29,7 +30,7 @@ the source of truth.
 
     expense-tracker/
     |-- docs/          decisions, project log
-    |-- backend/       FastAPI app (complete)
+    |-- backend/       FastAPI app
     |   |-- app/
     |   |   |-- api/       routers, deps
     |   |   |-- core/      config, security
@@ -37,15 +38,16 @@ the source of truth.
     |   |   |-- models/    SQLAlchemy tables
     |   |   |-- schemas/   Pydantic request/response
     |   |   |-- services/  business logic
+    |   |   |-- scripts/   CLI helpers (reset_password, list_users)
     |   |   |-- ai/        (Phase 18+)
     |   |-- alembic/       migrations
-    |   |-- tests/         pytest suite (90 tests)
+    |   |-- tests/         pytest suite (97 tests)
     |   |-- requirements.txt
-    |-- frontend/      React app (MVP complete)
+    |-- frontend/      React app
     |   |-- src/
     |   |   |-- api/       HTTP client + API modules
-    |   |   |-- components/Layout, ProtectedRoute
-    |   |   |-- context/   AuthContext
+    |   |   |-- components/Layout, ProtectedRoute, PasswordInput
+    |   |   |-- context/   AuthContext, ThemeContext
     |   |   |-- pages/     All screens
     |   |   |-- test/      Vitest setup + helpers
     |   |   |-- types/     TypeScript types
@@ -82,9 +84,14 @@ Backend `.env` (in `backend/`):
     JWT_SECRET_KEY=<run: python -c "import secrets; print(secrets.token_urlsafe(64))">
     ACCESS_TOKEN_EXPIRE_MINUTES=30
     CORS_ORIGINS=http://localhost:5173
+    FRONTEND_URL=http://localhost:5173
+    DEBUG_RESET_LINKS=true
 
 **Important:** in `DATABASE_URL`, encode these characters:
 `@` -> `%40`, `:` -> `%3A`, `/` -> `%2F`, `#` -> `%23`, `%` -> `%25`.
+
+`DEBUG_RESET_LINKS=true` prints password reset links to the backend
+console (dev only). Set to `false` in production and add SMTP.
 
 Frontend `.env` (in `frontend/`) — optional:
 
@@ -139,8 +146,9 @@ Create the test database once:
 
 - Register with email + password (Argon2 hashing)
 - Login with JWT access token
-- Change password
+- **Forgot password** — reset link, 15-minute expiry, single-use
 - 401 auto-logout with session-expired message
+- **Show/hide password** toggle on all password fields
 
 ### Finance
 
@@ -153,6 +161,13 @@ Create the test database once:
 - **Dashboard** — total balance, monthly income/expense/net,
   top categories, recent transactions, 6-month trend
 
+### UX
+
+- **Dark mode** toggle (persists in localStorage, respects
+  system preference on first visit)
+- **Responsive** — mobile hamburger menu, scrollable tables,
+  adaptive modals
+
 ## API endpoints
 
 All protected endpoints require: `Authorization: Bearer <jwt>`.
@@ -164,6 +179,8 @@ All protected endpoints require: `Authorization: Bearer <jwt>`.
 | POST   | /api/v1/auth/login            |
 | GET    | /api/v1/auth/me               |
 | POST   | /api/v1/auth/change-password  |
+| POST   | /api/v1/auth/forgot-password  |
+| POST   | /api/v1/auth/reset-password   |
 
 ### Accounts / Categories / Transactions
 
@@ -188,23 +205,37 @@ Transaction list supports: `account_id`, `category_id`, `kind`,
 
 - `GET /health`
 
+## CLI helpers (backend)
+
+Reset a user's password from the command line (fallback):
+
+    cd backend
+    .venv\Scripts\Activate.ps1
+    python -m app.scripts.reset_password user@example.com NewPass123!
+
+List all registered users:
+
+    python -m app.scripts.list_users
+
 ## Progress
 
-| Phase | Scope                             | Status |
-|-------|-----------------------------------|--------|
-| 0-11  | Backend MVP                       | Done ✅|
-| 12-13 | React + auth UI                   | Done ✅|
-| 14-15 | All frontend pages (MVP)          | Done ✅|
-| 16-17 | Analytics, uploads, notifications | Next   |
-| 18-20 | AI: RAG, chat, agent tools        |        |
-| 21    | Testing and security sweep        |        |
-| 22    | Dockerization and deployment      |        |
-| 23    | Final QA and docs                 |        |
+| Phase    | Scope                                    | Status |
+|----------|------------------------------------------|--------|
+| 0-11     | Backend MVP                              | Done ✅|
+| 12-13    | React + auth UI                          | Done ✅|
+| 14-15    | All frontend pages (MVP)                 | Done ✅|
+| Post-MVP | Forgot password, dark mode, responsive   | Done ✅|
+| 16-17    | Analytics, uploads, notifications        | Next   |
+| 18-20    | AI: RAG, chat, agent tools               |        |
+| 21       | Testing and security sweep               |        |
+| 22       | Dockerization and deployment             |        |
+| 23       | Final QA and docs                        |        |
 
-**MVP checkpoint complete.** 147 tests passing
-(90 backend + 57 frontend). Tagged `v0.1.0-mvp`.
+**156 tests passing** (97 backend + 59 frontend).
+Tags: `v0.1.0-mvp`, `v0.1.1-forgot-password`.
 
-See `docs/PROJECT_LOG.md` for the full phase-by-phase record.
+See `docs/PROJECT_LOG.md` for the full phase-by-phase record,
+decisions, troubleshooting, and command reference.
 
 ## Notes
 
@@ -217,3 +248,7 @@ See `docs/PROJECT_LOG.md` for the full phase-by-phase record.
 - Account balance is updated in the same DB transaction as the row.
 - Budget usage is computed live from transactions.
 - Recurring rules are generated on demand; `end_date` inclusive.
+- **Forgot password** in dev prints the reset link to backend console
+  (`DEBUG_RESET_LINKS=true`). In production this becomes an email send.
+- Password reset tokens: SHA-256 hashed, 15-min expiry, single-use,
+  one active per user.
