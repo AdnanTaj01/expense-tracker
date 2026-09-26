@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link } from "react-router-dom";
 
 import { ApiError } from "../api/client";
+import Logo from "../components/Logo";
 import { useAuth } from "../context/AuthContext";
 
 function ForgotPasswordPage() {
@@ -32,13 +33,16 @@ function ForgotPasswordPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center px-4 py-8 transition-colors">
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-lg shadow-md p-6 sm:p-8 border border-slate-200 dark:border-slate-800">
-        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-2">
-          Forgot password
-        </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-          Enter your email and we'll generate a reset link.
-        </p>
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-lg shadow-md p-6 sm:p-8 border border-slate-200 dark:border-slate-800 animate-fade-in">
+        <div className="flex flex-col items-center mb-6">
+          <Logo size={56} />
+          <h1 className="mt-4 text-2xl font-bold text-slate-800 dark:text-slate-100">
+            Forgot password
+          </h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 text-center">
+            Enter your email and we'll send you a reset link
+          </p>
+        </div>
 
         {submitted ? (
           <div className="space-y-4">

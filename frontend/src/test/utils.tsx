@@ -2,6 +2,7 @@ import { render, type RenderOptions } from "@testing-library/react";
 import { MemoryRouter, type MemoryRouterProps } from "react-router-dom";
 import type { ReactElement, ReactNode } from "react";
 
+import { ToastProvider } from "../components/Toast";
 import { AuthProvider } from "../context/AuthContext";
 import { ThemeProvider } from "../context/ThemeContext";
 
@@ -17,7 +18,9 @@ export function renderWithProviders(
     return (
       <MemoryRouter {...routerProps}>
         <ThemeProvider>
-          <AuthProvider>{children}</AuthProvider>
+          <ToastProvider>
+            <AuthProvider>{children}</AuthProvider>
+          </ToastProvider>
         </ThemeProvider>
       </MemoryRouter>
     );

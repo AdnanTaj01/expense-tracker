@@ -2,7 +2,9 @@ import { useEffect, useState, type FormEvent } from "react";
 import { Link, useLocation, useNavigate } from "react-router-dom";
 
 import { ApiError } from "../api/client";
+import Logo from "../components/Logo";
 import PasswordInput from "../components/PasswordInput";
+import { useToast } from "../components/Toast";
 import { useAuth } from "../context/AuthContext";
 
 interface LocationState {
@@ -13,6 +15,7 @@ interface LocationState {
 
 function LoginPage() {
   const { login, sessionExpired, clearSessionExpired } = useAuth();
+  const toast = useToast();
   const navigate = useNavigate();
   const location = useLocation();
   const state = location.state as LocationState | null;
@@ -35,6 +38,7 @@ function LoginPage() {
     setSubmitting(true);
     try {
       await login(email, password);
+      toast.success("Welcome back!");
       const redirectTo = state?.from?.pathname ?? "/dashboard";
       navigate(redirectTo, { replace: true });
     } catch (err) {
@@ -50,13 +54,16 @@ function LoginPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center px-4 py-8 transition-colors">
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-lg shadow-md p-6 sm:p-8 border border-slate-200 dark:border-slate-800">
-        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-2">
-          Sign in
-        </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-          Enter your credentials to access your dashboard.
-        </p>
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-lg shadow-md p-6 sm:p-8 border border-slate-200 dark:border-slate-800 animate-fade-in">
+        <div className="flex flex-col items-center mb-6">
+          <Logo size={64} />
+          <h1 className="mt-4 text-2xl font-bold text-slate-800 dark:text-slate-100">
+            Expense<span className="text-green-600 dark:text-green-400">Tracker</span>
+          </h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400">
+            Sign in to your account
+          </p>
+        </div>
 
         {passwordReset && (
           <div className="mb-4 text-sm text-green-800 dark:text-green-200 bg-green-50 dark:bg-green-900/30 border border-green-200 dark:border-green-800 rounded-md px-3 py-2">

@@ -3,6 +3,7 @@ import { Link } from "react-router-dom";
 
 import { dashboardApi } from "../api/dashboard";
 import { ApiError } from "../api/client";
+import WelcomeCard from "../components/WelcomeCard";
 import { useAuth } from "../context/AuthContext";
 import type { DashboardOverview } from "../types/api";
 
@@ -79,6 +80,8 @@ function DashboardPage() {
 
   return (
     <div className="text-slate-900 dark:text-slate-100">
+      <WelcomeCard />
+
       <div className="mb-6">
         <h1 className="text-2xl font-bold">Welcome{greeting}</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
@@ -134,7 +137,7 @@ function DashboardPage() {
                   </div>
                   <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded overflow-hidden">
                     <div
-                      className="h-full bg-slate-700 dark:bg-slate-400"
+                      className="h-full bg-slate-700 dark:bg-slate-400 transition-all duration-500"
                       style={{
                         width: `${Math.min(100, Number(c.percentage))}%`,
                       }}
@@ -207,12 +210,12 @@ function DashboardPage() {
               >
                 <div className="flex items-end gap-1 h-40 w-full justify-center">
                   <div
-                    className="w-3 bg-green-500 rounded-t"
+                    className="w-3 bg-green-500 rounded-t transition-all duration-500"
                     style={{ height: `${incomeH}%` }}
                     title={`Income: ${formatMoney(t.income, currency)}`}
                   />
                   <div
-                    className="w-3 bg-red-500 rounded-t"
+                    className="w-3 bg-red-500 rounded-t transition-all duration-500"
                     style={{ height: `${expenseH}%` }}
                     title={`Expense: ${formatMoney(t.expense, currency)}`}
                   />
@@ -253,7 +256,7 @@ function Card({
         ? "text-red-600 dark:text-red-400"
         : "text-slate-800 dark:text-slate-100";
   return (
-    <div className={`${cardCls} p-5`}>
+    <div className={`${cardCls} p-5 transition-transform hover:-translate-y-0.5 hover:shadow-md`}>
       <p className="text-sm text-slate-500 dark:text-slate-400">{label}</p>
       <p className={`text-2xl font-bold mt-2 ${toneClass}`}>{value}</p>
     </div>

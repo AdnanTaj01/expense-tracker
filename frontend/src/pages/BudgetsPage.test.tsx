@@ -29,7 +29,8 @@ function setupAuth() {
     register: vi.fn(),
     logout: vi.fn(),
     clearSessionExpired: vi.fn(),
-    changePassword: vi.fn(),
+    forgotPassword: vi.fn(),
+    resetPassword: vi.fn(),
   });
 }
 
@@ -108,7 +109,7 @@ describe("BudgetsPage", () => {
     renderWithProviders(<BudgetsPage />);
 
     await waitFor(() =>
-      expect(screen.getByText(/no budgets set/i)).toBeInTheDocument(),
+      expect(screen.getByText(/no budgets set for/i)).toBeInTheDocument(),
     );
   });
 
@@ -153,7 +154,7 @@ describe("BudgetsPage", () => {
     renderWithProviders(<BudgetsPage />);
 
     await waitFor(() =>
-      expect(screen.getByText(/no budgets set/i)).toBeInTheDocument(),
+      expect(screen.getByText(/no budgets set for/i)).toBeInTheDocument(),
     );
 
     const before = document.body.textContent ?? "";

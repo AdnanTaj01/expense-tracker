@@ -31,7 +31,8 @@ function setupAuth() {
     register: vi.fn(),
     logout: vi.fn(),
     clearSessionExpired: vi.fn(),
-    changePassword: vi.fn(),
+    forgotPassword: vi.fn(),
+    resetPassword: vi.fn(),
   });
 }
 
@@ -108,11 +109,10 @@ describe("AccountsPage", () => {
   });
 
   it("creates an account and reloads the list", async () => {
-    // 1st call: list empty. 2nd call (after create): list has new account.
     fetchMock
-      .mockResolvedValueOnce(jsonResponse([])) // initial list
-      .mockResolvedValueOnce(jsonResponse(sampleAccount, 201)) // create
-      .mockResolvedValueOnce(jsonResponse([sampleAccount])); // reload list
+      .mockResolvedValueOnce(jsonResponse([]))
+      .mockResolvedValueOnce(jsonResponse(sampleAccount, 201))
+      .mockResolvedValueOnce(jsonResponse([sampleAccount]));
 
     renderWithProviders(<AccountsPage />);
 
@@ -131,7 +131,6 @@ describe("AccountsPage", () => {
       expect(screen.getByText("Meezan Bank")).toBeInTheDocument(),
     );
 
-    // Verify the POST body
     const createCall = fetchMock.mock.calls.find(
       (call) => (call[1] as RequestInit)?.method === "POST",
     );
@@ -145,7 +144,6 @@ describe("AccountsPage", () => {
   });
 
   it("deletes an account after confirm", async () => {
-    // list, delete, reload
     fetchMock
       .mockResolvedValueOnce(jsonResponse([sampleAccount]))
       .mockResolvedValueOnce(new Response(null, { status: 204 }))

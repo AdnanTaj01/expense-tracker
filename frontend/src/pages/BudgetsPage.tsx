@@ -226,17 +226,47 @@ function BudgetsPage() {
         </div>
       ) : budgets.length === 0 ? (
         <div className={`${cardCls} p-8 text-center`}>
-          <p className="text-slate-500 dark:text-slate-400">
-            No budgets set for {MONTH_NAMES[month - 1]} {year}.
+          <div className="w-14 h-14 mx-auto rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
+            <svg
+              className="w-7 h-7 text-slate-500 dark:text-slate-400"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.8}
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M11 3.055A9.001 9.001 0 1020.945 13H11V3.055z"
+              />
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M20.488 9H15V3.512A9.025 9.025 0 0120.488 9z"
+              />
+            </svg>
+          </div>
+          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-1">
+            No budgets set for {MONTH_NAMES[month - 1]} {year}
+          </h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-4">
+            A budget is a monthly spending limit for a category. For example:
+            "Don't spend more than 15,000 on Food this month". As you add
+            transactions, this page shows how much you've spent and how much
+            is left.
           </p>
-          {availableCategories.length > 0 && (
+          {availableCategories.length > 0 ? (
             <button
               type="button"
               onClick={openCreate}
-              className="mt-3 text-sm text-slate-700 dark:text-slate-300 hover:text-slate-900 dark:hover:text-white underline"
+              className={btnPrimaryCls}
             >
-              Add your first budget
+              + Set your first budget
             </button>
+          ) : (
+            <p className="text-sm text-slate-500 dark:text-slate-400">
+              All expense categories already have a budget for this month.
+            </p>
           )}
         </div>
       ) : (
@@ -245,7 +275,7 @@ function BudgetsPage() {
             const pct = Math.min(100, Number(b.percentage));
             const overflow = b.is_exceeded;
             return (
-              <div key={b.id} className={`${cardCls} p-4`}>
+              <div key={b.id} className={`${cardCls} p-4 transition-shadow hover:shadow-md`}>
                 <div className="flex justify-between items-start mb-2 gap-3">
                   <div className="min-w-0">
                     <h3 className="text-base font-semibold truncate">
@@ -285,7 +315,7 @@ function BudgetsPage() {
 
                 <div className="h-2 bg-slate-100 dark:bg-slate-800 rounded overflow-hidden">
                   <div
-                    className={`h-full ${
+                    className={`h-full transition-all duration-500 ${
                       overflow
                         ? "bg-red-500"
                         : "bg-slate-700 dark:bg-slate-400"
@@ -317,8 +347,8 @@ function BudgetsPage() {
       )}
 
       {formOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-30 px-4 py-6 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 rounded-lg shadow-lg w-full max-w-md p-6 border border-slate-200 dark:border-slate-800">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-30 px-4 py-6 overflow-y-auto animate-fade-in-fast">
+          <div className="bg-white dark:bg-slate-900 rounded-lg shadow-lg w-full max-w-md p-6 border border-slate-200 dark:border-slate-800 animate-scale-in">
             <h2 className="text-lg font-semibold mb-4">
               {editing ? "Edit budget limit" : "Add budget"}
             </h2>

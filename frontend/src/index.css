@@ -17,3 +17,91 @@ body {
 html.dark body {
   @apply bg-slate-950 text-slate-100;
 }
+
+/* ------------------------------------------------------------------ */
+/* Custom animations                                                  */
+/* ------------------------------------------------------------------ */
+
+@keyframes fadeIn {
+  from {
+    opacity: 0;
+    transform: translateY(8px);
+  }
+  to {
+    opacity: 1;
+    transform: translateY(0);
+  }
+}
+
+@keyframes fadeInFast {
+  from { opacity: 0; }
+  to { opacity: 1; }
+}
+
+@keyframes scaleIn {
+  from {
+    opacity: 0;
+    transform: scale(0.95);
+  }
+  to {
+    opacity: 1;
+    transform: scale(1);
+  }
+}
+
+@keyframes slideInRight {
+  from {
+    opacity: 0;
+    transform: translateX(100%);
+  }
+  to {
+    opacity: 1;
+    transform: translateX(0);
+  }
+}
+
+@keyframes pulseSoft {
+  0%, 100% { opacity: 1; }
+  50% { opacity: 0.5; }
+}
+
+.animate-fade-in {
+  animation: fadeIn 0.4s ease-out;
+}
+.animate-fade-in-fast {
+  animation: fadeInFast 0.2s ease-out;
+}
+.animate-scale-in {
+  animation: scaleIn 0.25s ease-out;
+}
+.animate-slide-in-right {
+  animation: slideInRight 0.3s ease-out;
+}
+.animate-pulse-soft {
+  animation: pulseSoft 1.8s ease-in-out infinite;
+}
+
+/* Skeleton shimmer */
+@keyframes shimmer {
+  0% { background-position: -200% 0; }
+  100% { background-position: 200% 0; }
+}
+.skeleton {
+  background: linear-gradient(
+    90deg,
+    rgb(226 232 240) 0%,
+    rgb(203 213 225) 50%,
+    rgb(226 232 240) 100%
+  );
+  background-size: 200% 100%;
+  animation: shimmer 1.5s ease-in-out infinite;
+}
+html.dark .skeleton {
+  background: linear-gradient(
+    90deg,
+    rgb(30 41 59) 0%,
+    rgb(51 65 85) 50%,
+    rgb(30 41 59) 100%
+  );
+  background-size: 200% 100%;
+}

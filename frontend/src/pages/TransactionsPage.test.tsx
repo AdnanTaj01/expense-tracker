@@ -29,7 +29,8 @@ function setupAuth() {
     register: vi.fn(),
     logout: vi.fn(),
     clearSessionExpired: vi.fn(),
-    changePassword: vi.fn(),
+    forgotPassword: vi.fn(),
+    resetPassword: vi.fn(),
   });
 }
 
@@ -85,15 +86,8 @@ const sampleTx = {
   updated_at: "2026-09-22T12:00:00Z",
 };
 
-/**
- * TransactionsPage fires 3 calls on mount (in Promise.all):
- *   1. accounts list
- *   2. categories list
- *   3. transactions list
- * Order in the code is: Promise.all([accounts, categories]) then transactions.
- * But both happen in parallel inside useEffect bodies; we mock sequentially
- * and match by URL instead.
- */
+const emptyList = { items: [], total: 0, limit: 20, offset: 0 };
+
 function mockByUrl(handlers: Record<string, () => Response>) {
   return vi.fn(async (url: string) => {
     for (const key of Object.keys(handlers)) {
@@ -141,15 +135,14 @@ describe("TransactionsPage", () => {
     fetchMock = mockByUrl({
       "/api/v1/accounts": () => jsonResponse([sampleAccount]),
       "/api/v1/categories": () => jsonResponse([foodCategory]),
-      "/api/v1/transactions": () =>
-        jsonResponse({ items: [], total: 0, limit: 20, offset: 0 }),
+      "/api/v1/transactions": () => jsonResponse(emptyList),
     });
     vi.stubGlobal("fetch", fetchMock);
 
     renderWithProviders(<TransactionsPage />);
 
     await waitFor(() =>
-      expect(screen.getByText(/no transactions found/i)).toBeInTheDocument(),
+      expect(screen.getByText(/no transactions yet/i)).toBeInTheDocument(),
     );
   });
 
@@ -157,8 +150,7 @@ describe("TransactionsPage", () => {
     fetchMock = mockByUrl({
       "/api/v1/accounts": () => jsonResponse([]),
       "/api/v1/categories": () => jsonResponse([]),
-      "/api/v1/transactions": () =>
-        jsonResponse({ items: [], total: 0, limit: 20, offset: 0 }),
+      "/api/v1/transactions": () => jsonResponse(emptyList),
     });
     vi.stubGlobal("fetch", fetchMock);
 
@@ -172,13 +164,6 @@ describe("TransactionsPage", () => {
   });
 
   it("opens the create form and submits a new expense", async () => {
-    fetchMock = mockByUrl({
-      "/api/v1/accounts": () => jsonResponse([sampleAccount]),
-      "/api/v1/categories": () => jsonResponse([foodCategory]),
-      "/api/v1/transactions": () =>
-        jsonResponse({ items: [], total: 0, limit: 20, offset: 0 }),
-    });
-    // 4th call: POST create. 5th call: reload.
     let postCount = 0;
     fetchMock = vi.fn(async (url: string, init?: RequestInit) => {
       if (init?.method === "POST" && url.includes("/transactions")) {
@@ -197,7 +182,7 @@ describe("TransactionsPage", () => {
             offset: 0,
           });
         }
-        return jsonResponse({ items: [], total: 0, limit: 20, offset: 0 });
+        return jsonResponse(emptyList);
       }
       throw new Error(`Unhandled URL: ${url}`);
     });
@@ -206,14 +191,13 @@ describe("TransactionsPage", () => {
     renderWithProviders(<TransactionsPage />);
 
     await waitFor(() =>
-      expect(screen.getByText(/no transactions found/i)).toBeInTheDocument(),
+      expect(screen.getByText(/no transactions yet/i)).toBeInTheDocument(),
     );
 
     await userEvent.click(
       screen.getByRole("button", { name: /\+ add transaction/i }),
     );
 
-    // Form should now be open with defaults
     expect(screen.getByLabelText(/amount/i)).toBeInTheDocument();
     await userEvent.type(screen.getByLabelText(/amount/i), "250");
     await userEvent.type(screen.getByLabelText(/note/i), "Snack");
@@ -255,7 +239,7 @@ describe("TransactionsPage", () => {
             offset: 0,
           });
         }
-        return jsonResponse({ items: [], total: 0, limit: 20, offset: 0 });
+        return jsonResponse(emptyList);
       }
       throw new Error(`Unhandled URL: ${url}`);
     });
@@ -271,7 +255,7 @@ describe("TransactionsPage", () => {
     await userEvent.click(screen.getByRole("button", { name: /delete/i }));
 
     await waitFor(() =>
-      expect(screen.getByText(/no transactions found/i)).toBeInTheDocument(),
+      expect(screen.getByText(/no transactions yet/i)).toBeInTheDocument(),
     );
   });
 

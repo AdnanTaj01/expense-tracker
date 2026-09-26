@@ -248,75 +248,115 @@ function TransactionsPage() {
       {/* Filters */}
       <div className={`${cardCls} p-4 mb-4`}>
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-3">
-          <select
-            aria-label="Filter by account"
-            value={accountId}
-            onChange={(e) => {
-              setOffset(0);
-              setAccountId(e.target.value === "" ? "" : Number(e.target.value));
-            }}
-            className={inputCls}
-          >
-            <option value="">All accounts</option>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.name}
-              </option>
-            ))}
-          </select>
+          <div>
+            <label
+              htmlFor="filter-account"
+              className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1"
+            >
+              Account
+            </label>
+            <select
+              id="filter-account"
+              value={accountId}
+              onChange={(e) => {
+                setOffset(0);
+                setAccountId(e.target.value === "" ? "" : Number(e.target.value));
+              }}
+              className={inputCls}
+            >
+              <option value="">All accounts</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>
+                  {a.name}
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <select
-            aria-label="Filter by category"
-            value={categoryId}
-            onChange={(e) => {
-              setOffset(0);
-              setCategoryId(e.target.value === "" ? "" : Number(e.target.value));
-            }}
-            className={inputCls}
-          >
-            <option value="">All categories</option>
-            {categories.map((c) => (
-              <option key={c.id} value={c.id}>
-                {c.name} ({c.kind})
-              </option>
-            ))}
-          </select>
+          <div>
+            <label
+              htmlFor="filter-category"
+              className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1"
+            >
+              Category
+            </label>
+            <select
+              id="filter-category"
+              value={categoryId}
+              onChange={(e) => {
+                setOffset(0);
+                setCategoryId(e.target.value === "" ? "" : Number(e.target.value));
+              }}
+              className={inputCls}
+            >
+              <option value="">All categories</option>
+              {categories.map((c) => (
+                <option key={c.id} value={c.id}>
+                  {c.name} ({c.kind})
+                </option>
+              ))}
+            </select>
+          </div>
 
-          <select
-            aria-label="Filter by kind"
-            value={kind}
-            onChange={(e) => {
-              setOffset(0);
-              setKind(e.target.value as "" | "income" | "expense");
-            }}
-            className={inputCls}
-          >
-            <option value="">All kinds</option>
-            <option value="income">Income</option>
-            <option value="expense">Expense</option>
-          </select>
+          <div>
+            <label
+              htmlFor="filter-kind"
+              className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1"
+            >
+              Kind
+            </label>
+            <select
+              id="filter-kind"
+              value={kind}
+              onChange={(e) => {
+                setOffset(0);
+                setKind(e.target.value as "" | "income" | "expense");
+              }}
+              className={inputCls}
+            >
+              <option value="">All kinds</option>
+              <option value="income">Income</option>
+              <option value="expense">Expense</option>
+            </select>
+          </div>
 
-          <input
-            type="date"
-            aria-label="From date"
-            value={fromDate}
-            onChange={(e) => {
-              setOffset(0);
-              setFromDate(e.target.value);
-            }}
-            className={inputCls}
-          />
+          <div>
+            <label
+              htmlFor="filter-from-date"
+              className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1"
+            >
+              From date
+            </label>
+            <input
+              id="filter-from-date"
+              type="date"
+              value={fromDate}
+              onChange={(e) => {
+                setOffset(0);
+                setFromDate(e.target.value);
+              }}
+              className={inputCls}
+            />
+          </div>
 
-          <input
-            type="date"
-            aria-label="To date"
-            value={toDate}
-            onChange={(e) => {
-              setOffset(0);
-              setToDate(e.target.value);
-            }}
-            className={inputCls}
-          />
+          <div>
+            <label
+              htmlFor="filter-to-date"
+              className="block text-xs font-medium text-slate-500 dark:text-slate-400 mb-1"
+            >
+              To date
+            </label>
+            <input
+              id="filter-to-date"
+              type="date"
+              value={toDate}
+              onChange={(e) => {
+                setOffset(0);
+                setToDate(e.target.value);
+              }}
+              className={inputCls}
+            />
+          </div>
         </div>
         <div className="mt-3 flex justify-end">
           <button
@@ -341,9 +381,47 @@ function TransactionsPage() {
         </div>
       ) : items.length === 0 ? (
         <div className={`${cardCls} p-8 text-center`}>
-          <p className="text-slate-500 dark:text-slate-400">
-            No transactions found.
+          <div className="w-14 h-14 mx-auto rounded-full bg-slate-100 dark:bg-slate-800 flex items-center justify-center mb-4">
+            <svg
+              className="w-7 h-7 text-slate-500 dark:text-slate-400"
+              fill="none"
+              stroke="currentColor"
+              strokeWidth={1.8}
+              viewBox="0 0 24 24"
+            >
+              <path
+                strokeLinecap="round"
+                strokeLinejoin="round"
+                d="M8 7h12m0 0l-4-4m4 4l-4 4m0 6H4m0 0l4 4m-4-4l4-4"
+              />
+            </svg>
+          </div>
+          <h3 className="text-base font-semibold text-slate-800 dark:text-slate-100 mb-1">
+            {accounts.length === 0
+              ? "Create an account first"
+              : "No transactions yet"}
+          </h3>
+          <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto mb-4">
+            {accounts.length === 0
+              ? "Transactions belong to an account. Create one first — a place where you keep your money."
+              : "A transaction is money coming in (income) or going out (expense). For example: your salary → income. Lunch → expense. Every transaction updates the account balance automatically."}
           </p>
+          {accounts.length === 0 ? (
+            <a
+              href="/accounts"
+              className={`${btnPrimaryCls} inline-block`}
+            >
+              Go to Accounts page
+            </a>
+          ) : (
+            <button
+              type="button"
+              onClick={openCreate}
+              className={btnPrimaryCls}
+            >
+              + Add your first transaction
+            </button>
+          )}
         </div>
       ) : (
         <div className={`${cardCls} overflow-hidden`}>
@@ -380,7 +458,7 @@ function TransactionsPage() {
                   return (
                     <tr
                       key={t.id}
-                      className="hover:bg-slate-50 dark:hover:bg-slate-800/50"
+                      className="hover:bg-slate-50 dark:hover:bg-slate-800/50 transition-colors"
                     >
                       <td className="px-4 py-3 text-sm text-slate-600 dark:text-slate-400">
                         {new Date(t.occurred_at).toLocaleDateString()}
@@ -436,7 +514,7 @@ function TransactionsPage() {
                 type="button"
                 disabled={offset === 0}
                 onClick={() => setOffset(Math.max(0, offset - PAGE_SIZE))}
-                className="px-3 py-1 border border-slate-300 dark:border-slate-700 rounded-md hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 text-slate-700 dark:text-slate-200"
+                className="px-3 py-1 border border-slate-300 dark:border-slate-700 rounded-md hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 text-slate-700 dark:text-slate-200 transition-colors"
               >
                 Previous
               </button>
@@ -444,7 +522,7 @@ function TransactionsPage() {
                 type="button"
                 disabled={offset + PAGE_SIZE >= total}
                 onClick={() => setOffset(offset + PAGE_SIZE)}
-                className="px-3 py-1 border border-slate-300 dark:border-slate-700 rounded-md hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 text-slate-700 dark:text-slate-200"
+                className="px-3 py-1 border border-slate-300 dark:border-slate-700 rounded-md hover:bg-white dark:hover:bg-slate-800 disabled:opacity-50 text-slate-700 dark:text-slate-200 transition-colors"
               >
                 Next
               </button>
@@ -454,8 +532,8 @@ function TransactionsPage() {
       )}
 
       {formOpen && (
-        <div className="fixed inset-0 bg-black/40 flex items-center justify-center z-30 px-4 py-6 overflow-y-auto">
-          <div className="bg-white dark:bg-slate-900 rounded-lg shadow-lg w-full max-w-md p-6 border border-slate-200 dark:border-slate-800">
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm flex items-center justify-center z-30 px-4 py-6 overflow-y-auto animate-fade-in-fast">
+          <div className="bg-white dark:bg-slate-900 rounded-lg shadow-lg w-full max-w-md p-6 border border-slate-200 dark:border-slate-800 animate-scale-in">
             <h2 className="text-lg font-semibold mb-4">
               {editing ? "Edit transaction" : "Add transaction"}
             </h2>

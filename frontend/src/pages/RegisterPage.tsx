@@ -2,6 +2,7 @@ import { useState, type FormEvent } from "react";
 import { Link, useNavigate } from "react-router-dom";
 
 import { ApiError } from "../api/client";
+import Logo from "../components/Logo";
 import PasswordInput from "../components/PasswordInput";
 import { useAuth } from "../context/AuthContext";
 
@@ -50,13 +51,16 @@ function RegisterPage() {
 
   return (
     <div className="min-h-screen bg-slate-50 dark:bg-slate-950 flex items-center justify-center px-4 py-8 transition-colors">
-      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-lg shadow-md p-6 sm:p-8 border border-slate-200 dark:border-slate-800">
-        <h1 className="text-2xl font-bold text-slate-800 dark:text-slate-100 mb-2">
-          Create account
-        </h1>
-        <p className="text-sm text-slate-500 dark:text-slate-400 mb-6">
-          Start tracking your finances in one place.
-        </p>
+      <div className="w-full max-w-md bg-white dark:bg-slate-900 rounded-lg shadow-md p-6 sm:p-8 border border-slate-200 dark:border-slate-800 animate-fade-in">
+        <div className="flex flex-col items-center mb-6">
+          <Logo size={64} />
+          <h1 className="mt-4 text-2xl font-bold text-slate-800 dark:text-slate-100">
+            Create your account
+          </h1>
+          <p className="mt-1 text-sm text-slate-500 dark:text-slate-400 text-center">
+            Start tracking your finances in one place
+          </p>
+        </div>
 
         <form onSubmit={onSubmit} className="space-y-4">
           <div>

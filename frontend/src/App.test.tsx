@@ -2,6 +2,7 @@ import { render, screen, waitFor } from "@testing-library/react";
 import { afterEach, beforeEach, describe, expect, it, vi } from "vitest";
 
 import App from "./App";
+import { ToastProvider } from "./components/Toast";
 import { ThemeProvider } from "./context/ThemeContext";
 
 // Mock AuthProvider as passthrough and useAuth per-test.
@@ -30,7 +31,8 @@ const authedValue = {
   register: vi.fn(),
   logout: vi.fn(),
   clearSessionExpired: vi.fn(),
-  changePassword: vi.fn(),
+  forgotPassword: vi.fn(),
+  resetPassword: vi.fn(),
 };
 
 const anonValue = {
@@ -42,7 +44,8 @@ const anonValue = {
   register: vi.fn(),
   logout: vi.fn(),
   clearSessionExpired: vi.fn(),
-  changePassword: vi.fn(),
+  forgotPassword: vi.fn(),
+  resetPassword: vi.fn(),
 };
 
 const emptyOverview = {
@@ -81,7 +84,9 @@ function setUrl(path: string) {
 function renderApp() {
   return render(
     <ThemeProvider>
-      <App />
+      <ToastProvider>
+        <App />
+      </ToastProvider>
     </ThemeProvider>,
   );
 }
@@ -120,12 +125,12 @@ describe("App routing", () => {
     ).toBeInTheDocument();
   });
 
-  it("renders RegisterPage at /register", () => {
+    it("renders RegisterPage at /register", () => {
     mockedUseAuth.mockReturnValue(anonValue);
     setUrl("/register");
     renderApp();
     expect(
-      screen.getByRole("heading", { name: /create account/i }),
+      screen.getByRole("heading", { name: /create your account/i }),
     ).toBeInTheDocument();
   });
 
