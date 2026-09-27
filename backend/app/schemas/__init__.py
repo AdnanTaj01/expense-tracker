@@ -52,6 +52,8 @@ from app.schemas.transaction import (
 )
 from app.schemas.user import UserBase, UserCreate, UserRead
 
+from app.schemas.chat import ChatRequest, ChatResponse, ChatSource
+
 __all__ = [
     "AccountCreate",
     "AccountRead",
