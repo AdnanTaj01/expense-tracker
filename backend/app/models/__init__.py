@@ -1,6 +1,7 @@
 from app.models.account import Account
 from app.models.budget import Budget
 from app.models.category import Category
+from app.models.document import Document
 from app.models.password_reset_token import PasswordResetToken
 from app.models.receipt import Receipt
 from app.models.recurring import RecurringRule
@@ -11,6 +12,7 @@ __all__ = [
     "Account",
     "Budget",
     "Category",
+    "Document",
     "PasswordResetToken",
     "Receipt",
     "RecurringRule",

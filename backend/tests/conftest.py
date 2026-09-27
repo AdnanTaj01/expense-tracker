@@ -8,7 +8,7 @@ from sqlalchemy.orm import sessionmaker
 # Use a dedicated test database before importing app code.
 os.environ.setdefault(
     "DATABASE_URL",
-    "postgresql+psycopg://expense_user:Madnantaj1756%40360@localhost:5433/expense_tracker_test",
+    "postgresql+psycopg://expense_user:Madnantaj17%40160@localhost:5433/expense_tracker_test",
 )
 os.environ.setdefault("JWT_SECRET_KEY", "test_secret_key_for_pytest_only")
 

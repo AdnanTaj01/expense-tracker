@@ -7,6 +7,7 @@ from app.api.v1 import (
     budgets,
     categories,
     dashboard,
+    documents,
     exports,
     receipts,
     recurring,
@@ -24,5 +25,6 @@ api_router.include_router(dashboard.router)
 api_router.include_router(analytics.router)
 api_router.include_router(exports.router)
 api_router.include_router(receipts.router)
+api_router.include_router(documents.router)
 
 __all__ = ["api_router"]

@@ -28,13 +28,33 @@ class Settings(BaseSettings):
     # sending email. Set to False in production.
     DEBUG_RESET_LINKS: bool = True
 
-    # File uploads
+    # File uploads (receipts)
     UPLOAD_DIR: str = "uploads"
     MAX_UPLOAD_SIZE_MB: int = 5
+
+    # Document uploads (for AI / RAG)
+    DOCUMENT_MAX_SIZE_MB: int = 20
+
+    # LLM (Groq)
+    GROQ_API_KEY: str = ""
+    GROQ_MODEL: str = "openai/gpt-oss-120b"
+
+    # Embeddings (sentence-transformers, local)
+    EMBEDDING_MODEL: str = "BAAI/bge-small-en-v1.5"
+    EMBEDDING_DIM: int = 384
+
+    # RAG tuning
+    RAG_CHUNK_SIZE: int = 800
+    RAG_CHUNK_OVERLAP: int = 100
+    RAG_TOP_K: int = 5
 
     @property
     def cors_origins_list(self) -> list[str]:
         return [o.strip() for o in self.CORS_ORIGINS.split(",") if o.strip()]
+
+    @property
+    def llm_enabled(self) -> bool:
+        return bool(self.GROQ_API_KEY.strip())
 
 
 settings = Settings()

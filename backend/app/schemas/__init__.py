@@ -35,6 +35,7 @@ from app.schemas.dashboard import (
     DashboardSummary,
     TrendPoint,
 )
+from app.schemas.document import DocumentRead
 from app.schemas.recurring import (
     GenerateResult,
     RecurringFrequency,
@@ -71,6 +72,7 @@ __all__ = [
     "ChangePassword",
     "DashboardOverview",
     "DashboardSummary",
+    "DocumentRead",
     "ForgotPasswordRequest",
     "GenerateResult",
     "MonthComparison",

@@ -8,6 +8,8 @@ from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from app.db.base import Base
 
+from app.models.document import Document
+
 if TYPE_CHECKING:
     from app.models.account import Account
     from app.models.budget import Budget
@@ -73,6 +75,10 @@ class User(Base):
         cascade="all, delete-orphan",
     )
     receipts: Mapped[list[Receipt]] = relationship(
+        back_populates="user",
+        cascade="all, delete-orphan",
+    )
+    documents: Mapped[list[Document]] = relationship(
         back_populates="user",
         cascade="all, delete-orphan",
     )
