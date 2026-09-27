@@ -76,6 +76,15 @@ const navItems: NavItem[] = [
       </svg>
     ),
   },
+  {
+  to: "/documents",
+  label: "Documents",
+  icon: (
+    <svg className="w-4 h-4" fill="none" stroke="currentColor" strokeWidth={1.8} viewBox="0 0 24 24">
+      <path strokeLinecap="round" strokeLinejoin="round" d="M19.5 14.25v-2.625a3.375 3.375 0 00-3.375-3.375h-1.5A1.125 1.125 0 0113.5 7.125v-1.5a3.375 3.375 0 00-3.375-3.375H8.25m5.231 13.481L15 17.25m-1.519-2.638a1.5 1.5 0 00-2.12 0l-1.62 1.62a1.5 1.5 0 000 2.121l1.62 1.62a1.5 1.5 0 002.12 0l1.62-1.62m-1.62-1.62l1.62-1.62m-5.16 0h5.16" />
+    </svg>
+  ),
+},
 ];
 
 function Layout() {

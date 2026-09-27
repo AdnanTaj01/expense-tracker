@@ -7,10 +7,13 @@ from fastapi import UploadFile
 from pypdf import PdfReader
 from sqlalchemy.orm import Session
 
+from app.ai.rag.chunking import chunk_text
+from app.ai.rag.embeddings import embed
 from app.core.config import settings
 from app.models.document import Document
+from app.models.document_chunk import DocumentChunk
 
-ALLOWED_EXTENSIONS = {".pdf", ".txt", ".md", ".markdown"}
+ALLOWED_EXTENSIONS = {".pdf", ".txt", ".md", ".markdown", ".csv", ".json", ".xml", ".html", ".htm"}
 
 
 def _documents_dir() -> Path:
@@ -76,12 +79,46 @@ def _process_document(db: Session, document: Document, path: Path, ext: str) -> 
         document.page_count = page_count
         document.status = "ready"
         document.error_message = None
+        db.add(document)
+        db.commit()
+        db.refresh(document)
+
+        _create_chunks(db, document)
     except Exception as exc:  # noqa: BLE001
         document.status = "failed"
         document.error_message = str(exc)[:500]
-    db.add(document)
+        db.add(document)
+        db.commit()
+        db.refresh(document)
+
+
+def _create_chunks(db: Session, document: Document) -> None:
+    """Split extracted text into chunks and embed them (Phase 18C)."""
+    if not document.text_content:
+        return
+
+    # Remove any stale chunks (e.g. if this document is reprocessed).
+    db.query(DocumentChunk).filter(
+        DocumentChunk.document_id == document.id
+    ).delete()
+
+    pieces = chunk_text(document.text_content)
+    if not pieces:
+        db.commit()
+        return
+
+    vectors = embed(pieces)
+    for index, (content, vector) in enumerate(zip(pieces, vectors)):
+        db.add(
+            DocumentChunk(
+                document_id=document.id,
+                user_id=document.user_id,
+                chunk_index=index,
+                content=content,
+                embedding=vector,
+            )
+        )
     db.commit()
-    db.refresh(document)
 
 
 def list_documents(db: Session, user_id: int) -> list[Document]:

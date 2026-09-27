@@ -213,3 +213,15 @@ export interface Receipt {
   size_bytes: number;
   created_at: string;
 }
+
+export interface Document {
+  id: number;
+  original_name: string;
+  content_type: string;
+  size_bytes: number;
+  page_count: number | null;
+  status: "pending" | "ready" | "failed";
+  error_message: string | null;
+  created_at: string;
+  updated_at: string;
+}
