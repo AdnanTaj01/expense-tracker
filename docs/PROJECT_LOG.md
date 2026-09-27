@@ -1,6 +1,6 @@
 # Expense Tracker — Master Project Log
 
-Last updated: Phase 16-17 (analytics, exports, receipts) — 2026-09-25
+Last updated: Phase 18 (AI: documents, RAG, chat) — 2026-09-27
 
 Ye file project ka single source of truth hai. Isme project ka
 overview, decisions, setup steps, har phase ka record, aur
@@ -10,7 +10,8 @@ troubleshooting sab kuch ek jagah hai.
 
 ## 1. Project Overview
 
-A multi-user personal finance system with an optional AI assistant.
+A multi-user personal finance system with an AI assistant that can
+answer questions about a user's uploaded documents (RAG).
 
 Core idea:
 - Users register aur login karte hain
@@ -19,16 +20,19 @@ Core idea:
 - Budgets set karte hain aur usage monitor karte hain
 - Dashboard par summary dekhte hain
 - Analytics + CSV exports + receipts
-- (Phase 18+) AI assistant documents par sawal-jawab karta hai
+- (Phase 18) Documents upload karte hain (PDF/TXT/CSV/etc.), AI
+  assistant unke content par sawal-jawab karta hai (RAG)
 
 Rule: App AI ke bina bhi chalti hai. LLM sirf explain karta hai,
-woh source of truth nahi hai.
+woh source of truth nahi hai. Agar GROQ_API_KEY missing/invalid ho,
+sirf `/api/v1/chat` 503 deta hai — baaki poori app chalti hai.
 
 **Backend MVP (Phases 0-11) complete.**
 **Frontend MVP (Phases 12-15) complete.**
 **Post-MVP polish (forgot password, dark mode, responsive) complete.**
 **Analytics + exports + receipts (Phases 16-17) complete.**
-**180 tests passing (118 backend + 62 frontend).**
+**AI: documents, chunking/embeddings, RAG chat (Phase 18) complete.**
+**197 tests passing (135 backend + 62 frontend).**
 **Tags: v0.1.0-mvp, v0.1.1-forgot-password, v0.2.0-analytics-receipts**
 
 ---
@@ -47,7 +51,12 @@ woh source of truth nahi hai.
 | Backend test| pytest + httpx (TestClient)                      |
 | Frontend test| Vitest + React Testing Library + jsdom          |
 | Coverage    | pytest-cov (be), V8 (fe) — HTML + LCOV + JUnit   |
-| AI / RAG    | LLM provider TBD + pgvector - Phase 18+          |
+| AI / RAG    | Groq (LLM, `openai/gpt-oss-120b`) + local         |
+|             | embeddings (`sentence-transformers`,              |
+|             | `BAAI/bge-small-en-v1.5`, 384-dim) + pgvector     |
+|             | (cosine similarity search) — Phase 18 (done)      |
+| PDF/DOCX    | pypdf (PDF text extraction); python-docx planned  |
+|             | but blocked on `lxml` network install (see §12)   |
 | Deployment  | Docker Compose + nginx - Phase 22+               |
 
 ---
@@ -60,6 +69,9 @@ Layering rules:
 - Routers input validate karte hain, service call karte hain
 - Services business logic rakhte hain, DB se baat karte hain
 - AI tools sirf services call karte hain, kabhi seedha SQL nahi
+- RAG flow: endpoint -> chat_service.ask() -> search_chunks()
+  (embed query -> pgvector cosine distance) -> llm.chat()
+  (Groq, context-only system prompt) -> response with sources
 
 Frontend layering:
 - Pages -> components + hooks + context
@@ -86,9 +98,12 @@ Frontend layering:
 6. DB access: sync SQLAlchemy 2.x + psycopg 3.
 7. Recurring transactions: dev mein manual trigger. Scheduler baad
    mein. Phase 2 scope.
-8. LLM provider aur embedding model Phase 18 se pehle decide honge.
+8. LLM provider aur embedding model (decided Phase 18): **Groq**
+   (`openai/gpt-oss-120b`, free tier, OpenAI-compatible API) for
+   chat completions; **sentence-transformers** (`BAAI/bge-small-en-v1.5`,
+   384 dimensions, runs locally on CPU, no API cost) for embeddings.
 9. Receipts: local uploads/ folder (Docker volume). PDF library
-   Phase 16 mein decide hoga.
+   Phase 16 mein decide hoga (pypdf, confirmed Phase 18).
 10. Frontend: Vite + React Router + TypeScript + Tailwind.
     Filhal koi extra lib nahi (TanStack Query, React Hook Form
     optional hain - Phase 14+ mein decide karenge).
@@ -99,6 +114,25 @@ Frontend layering:
     Filename is uuid-prefixed (safety). Original name is untrusted
     display-only. In production this becomes object storage
     (Phase 22).
+13. Documents (Phase 18): same local-disk pattern as receipts, under
+    `backend/uploads/documents/`, uuid-prefixed stored_name. Allowed
+    types: `.pdf .txt .md .markdown .csv .json .xml .html .htm`
+    (20 MB max, config `DOCUMENT_MAX_SIZE_MB`). `.docx` deliberately
+    left out for now (see §12, lxml install issue) — can be added
+    later once `python-docx`/`lxml` install cleanly.
+14. RAG pipeline runs synchronously on upload (extract -> chunk ->
+    embed -> store), not as a background job. Acceptable for MVP
+    file sizes; revisit if uploads get slow (Phase 21+).
+15. Chunking: simple whitespace-snapped fixed-size chunks
+    (`RAG_CHUNK_SIZE=800`, `RAG_CHUNK_OVERLAP=100`), not
+    sentence/semantic chunking. Good enough for the current document
+    sizes; can be upgraded later without changing the DB schema.
+16. Chat endpoint answers **only** from retrieved chunks (system
+    prompt explicitly forbids inventing facts) and always returns
+    `sources` (document id/name + excerpt) for transparency.
+    `RAG_TOP_K=5` chunks are retrieved per query, scoped to the
+    logged-in user's own documents (optionally narrowed to one
+    `document_id`).
 
 ---
 
@@ -113,6 +147,7 @@ Frontend layering:
 | Docker       | 29.8.0            |                                    |
 | Docker Comp. | v5.5.1            |                                    |
 | VS Code      | 1.137.0           | Python, Pylance, Docker extensions |
+| Groq account | -                 | Free API key from console.groq.com |
 
 Project location: D:\dev\expense-tracker
 
@@ -122,6 +157,10 @@ lekin hum sirf 3.13 use karte hain.
 Command convention:
 - py -3.13 -> naya venv banane ke liye
 - venv active hone ke baad sirf python
+- **Zaroori:** har naye terminal mein `.venv\Scripts\Activate.ps1`
+  chalana zaroori hai — bina activate kiye `python` system Python
+  use karega jahan project packages installed nahi (dekhein §12,
+  "ModuleNotFoundError: No module named 'sqlalchemy'").
 
 ---
 
@@ -152,28 +191,40 @@ Command convention:
     |   |       |-- a157bb4870e3_create_recurring_rules_table.py
     |   |       |-- 585c4f1e42f7_create_password_reset_tokens_table.py
     |   |       |-- 6fb86563d435_create_receipts_table.py
-    |   |   |-- app/
-    |   |   |   |-- main.py
-    |   |   |   |-- core/ (config.py, security.py)
-    |   |   |   |-- db/ (base.py, session.py)
-    |   |   |   |-- models/ (user, account, category, transaction,
-    |   |   |   |           budget, recurring, password_reset_token,
-    |   |   |   |           receipt)
-    |   |   |   |-- schemas/ (user, auth, account, category,
-    |   |   |   |            transaction, budget, recurring,
-    |   |   |   |            dashboard, analytics, receipt)
-    |   |   |   |-- services/ (user, account, category, transaction,
-    |   |   |   |             budget, recurring, dashboard,
-    |   |   |   |             password_reset_service, analytics_service,
-    |   |   |   |             export_service, receipt_service)
-    |   |   |   |-- api/ (deps.py, v1/{auth, accounts, categories,
-    |   |   |   |         transactions, budgets, recurring, dashboard,
-    |   |   |   |         analytics, exports, receipts})
-    |   |   |   |-- scripts/ (list_users, reset_password,
-    |   |   |   |              seed_demo_data)
-    |   |   |   |-- ai/ (Phase 18+)
-    |   |   |-- tests/ (118 tests)
-    |   |   |-- uploads/            (gitignored — receipts storage)
+    |   |       |-- e01230aa081f_create_documents_table.py
+    |   |       |-- cd20231991b3_create_document_chunks_table.py
+    |   |-- app/
+    |   |   |-- main.py
+    |   |   |-- core/ (config.py, security.py)
+    |   |   |-- db/ (base.py, session.py)
+    |   |   |-- ai/
+    |   |   |   |-- llm/ (client.py — Groq wrapper, ChatMessage,
+    |   |   |   |         LLMUnavailableError)
+    |   |   |   |-- rag/ (chunking.py, embeddings.py, search.py)
+    |   |   |-- models/ (user, account, category, transaction,
+    |   |   |           budget, recurring, password_reset_token,
+    |   |   |           receipt, document, document_chunk)
+    |   |   |-- schemas/ (user, auth, account, category,
+    |   |   |            transaction, budget, recurring,
+    |   |   |            dashboard, analytics, receipt, document,
+    |   |   |            chat)
+    |   |   |-- services/ (user, account, category, transaction,
+    |   |   |             budget, recurring, dashboard,
+    |   |   |             password_reset_service, analytics_service,
+    |   |   |             export_service, receipt_service,
+    |   |   |             document_service, chat_service)
+    |   |   |-- api/ (deps.py, v1/{auth, accounts, categories,
+    |   |   |         transactions, budgets, recurring, dashboard,
+    |   |   |         analytics, exports, receipts, documents, chat})
+    |   |   |-- scripts/ (list_users, reset_password) — note:
+    |   |   |              old `app/scripts/seed_demo_data.py`
+    |   |   |              (module CLI) superseded by the new
+    |   |   |              `backend/scripts/seed_demo_data.py`
+    |   |   |              (HTTP-based, see §11)
+    |   |-- scripts/ (seed_demo_data.py — new, HTTP-based seeding)
+    |   |-- tests/ (135 tests, incl. test_documents.py,
+    |   |          test_ai_foundation.py, test_chat.py)
+    |   |-- uploads/            (gitignored — receipts/ + documents/)
     |-- frontend/
     |   |-- .env, .env.example
     |   |-- .vscode/settings.json
@@ -190,16 +241,18 @@ Command convention:
     |   |   |         accounts.ts, categories.ts,
     |   |   |         transactions.ts, budgets.ts,
     |   |   |         analytics.ts, exports.ts, receipts.ts,
-    |   |   |         client.test.ts)
+    |   |   |         documents.ts, chat.ts, client.test.ts)
     |   |   |-- components/ (Layout.tsx, ProtectedRoute.tsx,
     |   |   |                PasswordInput.tsx, ExportButton.tsx)
     |   |   |-- context/ (AuthContext.tsx, ThemeContext.tsx)
     |   |   |-- pages/ (Login, Register, ForgotPassword,
     |   |   |           ResetPassword, Dashboard, Accounts,
     |   |   |           Categories, Budgets, Transactions,
-    |   |   |           Analytics, Receipts, NotFound + tests)
+    |   |   |           Analytics, ReceiptsPage, DocumentsPage,
+    |   |   |           ChatPage, NotFound + tests)
     |   |   |-- test/ (setup.ts, utils.tsx)
-    |   |   |-- types/ (api.ts)
+    |   |   |-- types/ (api.ts — incl. Document, ChatRequest,
+    |   |   |          ChatResponse, ChatSource)
     |   |-- coverage/           (gitignored, HTML+LCov reports)
     |   |-- test-results/       (gitignored, JUnit XML)
     |-- deploy/                     (Phase 22+)
@@ -228,6 +281,22 @@ Note: POSTGRES_HOST_PORT=5433 (not 5432).
     UPLOAD_DIR=uploads
     MAX_UPLOAD_SIZE_MB=5
 
+    # Document uploads (for AI / RAG) — Phase 18
+    DOCUMENT_MAX_SIZE_MB=20
+
+    # LLM (Groq) — Phase 18
+    GROQ_API_KEY=<your Groq API key, from console.groq.com/keys>
+    GROQ_MODEL=openai/gpt-oss-120b
+
+    # Embeddings (local, sentence-transformers) — Phase 18
+    EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
+    EMBEDDING_DIM=384
+
+    # RAG tuning — Phase 18
+    RAG_CHUNK_SIZE=800
+    RAG_CHUNK_OVERLAP=100
+    RAG_TOP_K=5
+
 Password encoding (URL):
 
 | Character | Encode as |
@@ -245,6 +314,10 @@ JWT:    python -c "import secrets; print(secrets.token_urlsafe(64))"
 `DEBUG_RESET_LINKS=true` -> forgot-password link backend console
 par print hota hai. Production mein `false` karein aur SMTP
 configure karein (Phase 16+).
+
+`GROQ_API_KEY` blank/invalid ho to poori app chalti hai — sirf
+`/api/v1/chat` 503 `LLMUnavailableError` deta hai. Ye by design hai
+(decision #8/#16).
 
 ### Frontend frontend/.env (optional)
 
@@ -265,7 +338,7 @@ Rules:
 
     # 2. Root .env banayein
 
-    # 3. Docker
+    # 3. Docker (pgvector/pgvector image — vector extension included)
     docker compose up -d
     docker compose ps
 
@@ -274,7 +347,7 @@ Rules:
     py -3.13 -m venv .venv
     .venv\Scripts\Activate.ps1
     pip install -r requirements.txt
-    # backend/.env banayein
+    # backend/.env banayein (Groq key optional but recommended)
     alembic upgrade head
     uvicorn app.main:app --reload --port 8000
 
@@ -285,7 +358,9 @@ Rules:
 
 Test: http://localhost:8000/docs  aur  http://localhost:5173
 
-Test databases setup (ek baar):
+Test databases setup (ek baar) — `vector` extension test DB mein
+`tests/conftest.py` khud enable kar deta hai, alag se karne ki
+zaroorat nahi:
 
     docker compose exec db psql -U expense_user -d expense_tracker -c "CREATE DATABASE expense_tracker_test OWNER expense_user;"
 
@@ -293,6 +368,10 @@ Test run:
 
     cd backend && pytest
     cd frontend && npm test
+
+Demo data (optional, for manual UI testing — see §11):
+
+    python scripts\seed_demo_data.py
 
 ---
 
@@ -539,8 +618,264 @@ Reset, 404, Layout, all modals
 4. Analytics tests `ResizeObserver is not defined` de rahe thay.
    Fix: jsdom mein stub add kiya.
 
-- Commit: (pending)
-- Tag: v0.2.0-analytics-receipts (pending)
+- Commit: bfb3188 (rolled into Phase 18 commits — see below)
+- Tag: v0.2.0-analytics-receipts
+
+### Phase 18A - AI Foundation (Done)
+
+Goal: Groq LLM client + local embeddings wired up, testable without
+a live API key or downloading the model in CI.
+
+- `requirements.txt`: `groq==0.13.0`, `sentence-transformers==3.3.1`,
+  `pypdf==5.1.0`
+- Config additions: `GROQ_API_KEY`, `GROQ_MODEL`, `EMBEDDING_MODEL`,
+  `EMBEDDING_DIM`, `RAG_CHUNK_SIZE`, `RAG_CHUNK_OVERLAP`,
+  `RAG_TOP_K`, `settings.llm_enabled` property (True if API key set)
+- `app/ai/llm/client.py` — `ChatMessage` dataclass,
+  `LLMUnavailableError`, `chat()` (wraps Groq SDK, raises
+  `LLMUnavailableError` on any failure so callers never crash)
+- `app/ai/rag/embeddings.py` — `embed()`, `embed_one()`,
+  `dimension()`; model loaded lazily via `lru_cache` so importing
+  the module doesn't trigger a download
+- 5 new tests (`test_ai_foundation.py`), all mocked (no real Groq
+  call, no real model load): settings wiring, `llm_enabled` flag,
+  raises when disabled, calls Groq with correct args (mocked
+  client), embedding dimension. **123 backend tests total** at
+  this point (before Phase 18B).
+
+### Phase 18B - Document Upload + Text Extraction (Done)
+
+**18B-1: Document model + migration**
+- `Document` model: user_id (FK CASCADE), stored_name (uuid-prefixed),
+  original_name, content_type, size_bytes, text_content (nullable,
+  filled after extraction), page_count (nullable, PDFs only),
+  status (`pending`/`ready`/`failed`), error_message, timestamps
+- Migration: `e01230aa081f_create_documents_table.py`
+- Config: `DOCUMENT_MAX_SIZE_MB=20`
+
+**18B-2: Extraction service + endpoints**
+- `document_service.py`: `create_document()` (validate extension +
+  size, save to disk under `uploads/documents/`, extract text
+  synchronously, set status), `_extract_pdf()` (pypdf, per-page
+  join), `_extract_plain_text()` (UTF-8 read with `errors="replace"`),
+  `list_documents()`, `get_document()`, `get_document_path()`,
+  `delete_document()` (removes file + row)
+- `schemas/document.py`: `DocumentRead` (does **not** expose
+  `text_content` — kept out of the API response by design, it can
+  be large; a "view extracted text" feature is a possible later
+  addition, not built yet)
+- `api/v1/documents.py`: 5 endpoints (list, upload, get, download,
+  delete), all ownership-scoped (404 if not the caller's document)
+- Allowed extensions ended up broader than first planned:
+  `.pdf .txt .md .markdown .csv .json .xml .html .htm` (`.docx`
+  intentionally excluded — see Masle below)
+
+**18B-3: Tests**
+- `test_documents.py`, 7 tests: upload+extract, reject unsupported
+  extension, reject oversized file, list is ownership-scoped, 404
+  for other user's document, download, delete
+- **130 backend tests total** at this point
+
+**18B-4: Frontend DocumentsPage**
+- `api/documents.ts` (same fetch/FormData/blob-download pattern as
+  `receipts.ts`)
+- `types/api.ts`: `Document` interface
+- `pages/DocumentsPage.tsx` — upload form, status badge
+  (pending/ready/failed, color-coded), table with download/delete,
+  page-count + error-message shown inline when present
+- Nav link + route: `/documents`
+
+**Masle (18B):**
+1. `Status code 204 must not have a response body` on the DELETE
+   route — FastAPI infers a response model from the `-> None`
+   return annotation even with `status_code=204`. **Fix:** add
+   `response_model=None` explicitly on that route. (Known FastAPI
+   gotcha — always add this whenever a route returns `None` with a
+   204/304 status.)
+2. `python-docx` install failed: `Could not find a version that
+   satisfies the requirement lxml` — a transient network issue
+   (PyPI unreachable / read timeouts), not a version conflict.
+   Retried install, longer `--timeout`, `pip cache purge` all
+   failed the same way at the time. **Decision:** skip `.docx`
+   support for now (decision #13); revisit when network is stable.
+   `ALLOWED_EXTENSIONS` was widened instead to cover `.csv .json
+   .xml .html .htm` (all read fine via `_extract_plain_text`).
+3. Password/DB mismatch cost significant debugging time (same class
+   of issue recurring from earlier phases) — see §12 for the
+   generalized fix; the root cause was always the same: `.env`
+   password had been rotated after a `docker compose down -v`, but
+   either the running uvicorn process or `tests/conftest.py`'s
+   hardcoded `DATABASE_URL` still had the old password.
+4. Test-time `KeyError: 'access_token'` in a new `test_documents.py`
+   — the ad-hoc `_register_and_login` helper didn't match the app's
+   actual register/login contract (register needs `full_name` +
+   `currency`; login is OAuth2 form data with a `username` field,
+   not JSON with `email`). **Fix:** copy the exact helper already
+   working in `test_accounts.py` instead of guessing.
+
+### Phase 18C - Chunking + Embeddings (Done)
+
+**18C-1: DocumentChunk model + pgvector migration**
+- `DocumentChunk` model: document_id (FK CASCADE), user_id (FK
+  CASCADE, denormalized for fast ownership-scoped search),
+  chunk_index, content (Text), embedding (`pgvector.sqlalchemy.Vector`,
+  dim = `EMBEDDING_DIM` = 384), created_at
+- `pgvector==0.3.6` added to requirements
+- Migration: `cd20231991b3_create_document_chunks_table.py` — needed
+  **two manual edits** after `alembic revision --autogenerate`
+  (autogenerate does not add these on its own):
+  1. `import pgvector.sqlalchemy` at the top of the migration file
+     (autogenerate references `pgvector.sqlalchemy.vector.VECTOR(...)`
+     but doesn't import the module)
+  2. `op.execute("CREATE EXTENSION IF NOT EXISTS vector")` as the
+     first line of `upgrade()` (Postgres doesn't have the `vector`
+     type until the extension is enabled in that specific database)
+
+**18C-2: Chunking + embedding service, wired into upload**
+- `app/ai/rag/chunking.py`: `chunk_text()` — fixed-size chunks with
+  overlap, snaps the end boundary to the nearest space so words
+  aren't split
+- `document_service.py` updated: after successful extraction,
+  `_create_chunks()` runs automatically — deletes any stale chunks
+  (for re-processing), splits `text_content`, embeds all chunks in
+  one batch call (`embed()`), inserts one `DocumentChunk` row per
+  chunk. If chunking/embedding raises, the whole document falls
+  back to `status="failed"` (a document is never left "ready" with
+  no usable chunks).
+- Manually verified end-to-end via `psql`: a 5-paragraph test `.txt`
+  produced 2 chunks with correct content previews.
+
+**Masle (18C):**
+1. Pasted code accidentally nested `_create_chunks()` **inside**
+   `_process_document()` (wrong indentation) — would have raised
+   `NameError` at runtime since the inner `def` came after the call
+   site in execution order. Fix: dedent to module level.
+2. `psycopg.errors.UndefinedObject: type "vector" does not exist`
+   — but only in the **test** database, not in normal `uvicorn` use.
+   Root cause: the `vector` extension was enabled in `expense_tracker`
+   via the Alembic migration (§18C-1), but `tests/conftest.py` creates
+   tables with `Base.metadata.create_all()` directly, bypassing
+   Alembic entirely — so the test DB never got the extension. **Fix:**
+   in `conftest.py`'s `_setup_test_db` fixture, run
+   `CREATE EXTENSION IF NOT EXISTS vector` via a raw `text()` execute
+   *before* `Base.metadata.create_all()`. This is a **general
+   pattern**: any Postgres extension a migration enables must also be
+   enabled in `conftest.py`, because tests never run migrations.
+- All 130 existing tests plus manual chunk verification passed after
+  the fix. **130 backend tests total** (Phase 18C added no new
+  automated tests of its own — chunking/embedding is exercised
+  indirectly by `test_documents.py`; targeted RAG tests came in
+  Phase 18D).
+
+### Phase 18D - Semantic Search + RAG Chat (Done)
+
+**18D-1: Semantic search**
+- `app/ai/rag/search.py`: `search_chunks()` — embeds the query,
+  computes cosine distance via pgvector's `.cosine_distance()`
+  operator on `DocumentChunk.embedding`, filters to the given
+  `user_id` (and optionally one `document_id`), orders by distance
+  ascending, limits to `RAG_TOP_K`. Returns a list of `SearchResult`
+  dataclasses (chunk_id, document_id, chunk_index, content, distance).
+- Manually verified in a Python REPL against a real uploaded document:
+  query "How much did I spend on food delivery?" correctly ranked
+  the food-delivery chunk first (distance ≈0.28) over an unrelated
+  savings chunk (≈0.34).
+
+**18D-2: Chat endpoint**
+- `schemas/chat.py`: `ChatRequest` (message, optional document_id),
+  `ChatSource` (document_id, document_name, chunk_index, excerpt),
+  `ChatResponse` (answer, sources)
+- `services/chat_service.py`: `ask()` — calls `search_chunks()`; if
+  no chunks found, returns a canned "couldn't find anything relevant"
+  answer **without calling the LLM**; otherwise builds a
+  context block from the retrieved chunks (each labelled with its
+  source document name), sends a strict system prompt ("answer using
+  ONLY the provided excerpts... don't make anything up") plus the
+  context+question to `llm.chat()`, and returns the answer with a
+  `sources` list (one entry per retrieved chunk, not deduped — see
+  Masle #3 below)
+- `api/v1/chat.py`: `POST /api/v1/chat`, catches
+  `LLMUnavailableError` and returns 503 with a clear detail message
+- Verified end-to-end via Swagger: uploaded a budget-notes `.txt`,
+  asked "How much did I spend on food delivery?", got back the
+  correct figure (matching the document) plus 2 sources — confirms
+  the full pipeline (embed query -> pgvector search -> Groq
+  completion -> grounded answer) works correctly.
+
+**18D-3: Tests**
+- `test_chat.py`, 5 tests, all mocking `chat_service.search_chunks`
+  and `chat_service.llm_chat` (no real embedding model load, no real
+  Groq call): requires auth, happy path with sources, no-results
+  path skips the LLM call entirely, 503 when LLM raises
+  `LLMUnavailableError`, empty message rejected (422)
+- **135 backend tests total**
+
+**18D-4: Frontend ChatPage**
+- `types/api.ts`: `ChatSource`, `ChatRequest`, `ChatResponse`
+- `api/chat.ts` — same fetch/error-handling pattern as other API
+  modules; JSON POST (not FormData, unlike documents/receipts)
+- `pages/ChatPage.tsx` — simple chat-bubble UI (user right-aligned
+  dark bubble, assistant left-aligned light bubble), auto-scrolls to
+  latest message, shows a "Thinking…" placeholder while waiting,
+  lists source document names under each assistant reply, inline
+  error banner on failure (also rendered as a bubble with a ⚠️ prefix
+  so the conversation stays readable)
+- Nav link + route: `/chat` ("AI Assistant")
+
+**Masle (18D):**
+1. `401 Invalid API Key` from Groq on the first real chat request —
+   turned out to be a **placeholder** value
+   (`GROQ_API_KEY=gsk_YAHAN_APNI_KEY_PASTE_KAREIN`) never replaced
+   with a real key from console.groq.com.
+2. After replacing the key, the *same* 401 persisted at first. Root
+   cause: `uvicorn --reload` only watches `.py` files, not `.env` —
+   the running process still had the old value loaded from process
+   start. **Fix:** fully stop (Ctrl+C) and restart uvicorn after any
+   `.env` change; `--reload` is not enough.
+3. Isolated-testing a Groq API key with `max_tokens=20` produced an
+   **empty** response with no error (exit code 0, blank output) —
+   not a bug. `openai/gpt-oss-120b` is a reasoning model; it spends
+   some of the token budget on internal reasoning before the final
+   answer, so a very low `max_tokens` can exhaust the budget before
+   any visible text is produced. Raising to `max_tokens=300` (test)
+   / the app's actual default of 800 (`llm/client.py`) resolved it.
+   **Lesson:** an empty/blank LLM response with `exit_code == 0` and
+   no exception is a token-budget symptom, not a connectivity or
+   auth problem — check `max_tokens` before re-checking the API key.
+4. UX nit (not a bug): asking a question against a single uploaded
+   file showed the *same* file name 5 times under "Sources" — because
+   `RAG_TOP_K=5` retrieves 5 **chunks**, not 5 documents, and a single
+   document can contribute multiple chunks to one answer. **Fix**
+   (frontend only): dedupe `sources` by `document_id` using a `Map`
+   before rendering, so each source document is listed once per
+   answer regardless of how many of its chunks were used.
+   *(Scheduled — not yet applied as of this log entry; see "Next
+   session" below.)*
+
+**Demo data:** `backend/scripts/seed_demo_data.py` (new, HTTP-based,
+different from the old `app/scripts/seed_demo_data.py` CLI module)
+— registers/reuses a fixed demo user (`demo@example.com` /
+`DemoPass123!`) against a **running** backend, then seeds 4 accounts,
+3 extra categories, ~120 days of randomized transactions, and 5
+budgets, entirely through the public API (so it exercises the same
+code paths a real user would). Useful for populating every page with
+realistic data without manual entry. Safe to re-run.
+
+- Commit: (Phase 18A-18D squashed across several commits, see
+  `git log` — key ones: "feat: document upload, text extraction, and
+  CRUD endpoints (Phase 18B)", "feat: chunk and embed extracted
+  document text with pgvector (Phase 18C)", "fix: enable pgvector
+  extension in test database", "feat: RAG chat endpoint with semantic
+  search over documents (Phase 18D)", "test: add RAG chat endpoint
+  tests with mocked search and LLM")
+- **197 total tests (135 backend + 62 frontend)**
+
+**Next session (open items):**
+- Dedupe `sources` by document in `ChatPage.tsx` (Masle #4 above)
+- Optional: add `.docx` support once `python-docx`/`lxml` install
+  cleanly (network-dependent, decision #13)
+- Optional: expose extracted `text_content` somewhere in the UI
+  (currently stored but never shown — see 18B-2 note)
 
 ---
 
@@ -640,6 +975,24 @@ Reset, 404, Layout, all modals
 | GET    | /api/v1/receipts/{id}/download        | Yes  |
 | DELETE | /api/v1/receipts/{id}                 | Yes  |
 
+### Documents (Phase 18B)
+| Method | Path                                  | Auth |
+|--------|---------------------------------------|------|
+| GET    | /api/v1/documents                     | Yes  |
+| POST   | /api/v1/documents (multipart)         | Yes  |
+| GET    | /api/v1/documents/{id}                | Yes  |
+| GET    | /api/v1/documents/{id}/download       | Yes  |
+| DELETE | /api/v1/documents/{id}                | Yes  |
+
+### Chat (Phase 18D, RAG)
+| Method | Path                                  | Auth |
+|--------|---------------------------------------|------|
+| POST   | /api/v1/chat                          | Yes  |
+
+`POST /api/v1/chat` body: `{ "message": str, "document_id": int|null }`.
+Response: `{ "answer": str, "sources": [{document_id, document_name,
+chunk_index, excerpt}] }`. Returns 503 if the LLM is unavailable.
+
 ---
 
 ## 11. Common Commands Reference
@@ -666,10 +1019,19 @@ Reset, 404, Layout, all modals
     alembic current
     alembic history
 
+**pgvector columns:** after `--autogenerate`, always check the
+generated migration for two things it will NOT add on its own
+(§9, Phase 18C-1): `import pgvector.sqlalchemy` at the top, and
+`op.execute("CREATE EXTENSION IF NOT EXISTS vector")` as the first
+line of `upgrade()`.
+
 ### Database (psql)
 
     docker compose exec db psql -U expense_user -d expense_tracker
     # andar: \dt  \d users  \l  \q
+
+    # Quick RAG sanity check:
+    docker compose exec db psql -U expense_user -d expense_tracker -c "SELECT id, document_id, chunk_index, LEFT(content, 40) FROM document_chunks;"
 
 ### Tests
 
@@ -678,6 +1040,7 @@ Reset, 404, Layout, all modals
     .venv\Scripts\Activate.ps1
     pytest
     pytest tests/test_auth.py
+    pytest tests/test_chat.py -v
     pytest -k register
     pytest -v
 
@@ -693,7 +1056,32 @@ Reset, 404, Layout, all modals
     cd backend
     python -m app.scripts.list_users
     python -m app.scripts.reset_password user@example.com NewPass123!
-    python -m app.scripts.seed_demo_data user@example.com
+
+Demo data seeding (Phase 18, new — HTTP-based, needs the backend
+running):
+
+    uvicorn app.main:app --reload --port 8000   # terminal 1
+    python scripts\seed_demo_data.py            # terminal 2 (from backend/)
+
+Logs in as `demo@example.com` / `DemoPass123!`. Idempotent — re-running
+reuses the existing demo user instead of erroring.
+
+### Quick RAG debugging (Python REPL)
+
+    cd backend
+    .venv\Scripts\Activate.ps1
+    python
+    >>> from app.db.session import SessionLocal
+    >>> from app.ai.rag.search import search_chunks
+    >>> db = SessionLocal()
+    >>> results = search_chunks(db, user_id=1, query="your question")
+    >>> for r in results:
+    ...     print(r.distance, "-", r.content[:80])
+    ...
+    >>> db.close()
+
+(Note the blank line after the `print(...)` line to close the `for`
+loop before typing the next statement — a common REPL gotcha.)
 
 ### Git workflow
 
@@ -849,6 +1237,102 @@ Symptom: cannot import name 'receipts' — circular import error.
 Fix: The router file was missing. Add `app/api/v1/receipts.py`
      and the required `schemas/receipt.py`, `services/receipt_service.py`.
 
+### FastAPI: "Status code 204 must not have a response body"
+Symptom: AssertionError at route-definition time (import/startup),
+     on a DELETE route with `status_code=204` and a `-> None`
+     return annotation.
+Fix: Add `response_model=None` explicitly to that route decorator.
+     FastAPI otherwise infers a response model from the return
+     type annotation even when it's `None`.
+
+### pip: "Could not find a version that satisfies the requirement
+lxml" (or any package) with "(from versions: none)"
+Symptom: Looks like a version-compatibility error but isn't — it
+     means pip couldn't reach PyPI's index at all (transient
+     network issue, VPN/proxy, or a bad connection at that moment).
+Fix: Retry plainly first. If it persists: `pip install <pkg>
+     --timeout 120`, `pip cache purge`, toggle VPN, or switch
+     networks. If nothing works, defer that dependency and continue
+     (see decision #13 — `.docx` support deferred this way).
+
+### psycopg.errors.UndefinedObject: type "vector" does not exist
+     (in tests only, not in normal app use)
+Symptom: `Base.metadata.create_all()` fails inside
+     `tests/conftest.py`'s `_setup_test_db` fixture, but `alembic
+     upgrade head` against the real dev database works fine.
+Cause: A migration ran `CREATE EXTENSION IF NOT EXISTS vector` in
+     the main database, but tests build their schema directly via
+     SQLAlchemy metadata (bypassing Alembic), so the test database
+     never got the extension enabled.
+Fix: In `conftest.py`, before `Base.metadata.create_all(bind=engine)`,
+     run:
+         with engine.begin() as conn:
+             conn.execute(sa_text("CREATE EXTENSION IF NOT EXISTS vector"))
+     General rule: any `CREATE EXTENSION` a migration does must be
+     mirrored in `conftest.py`, since tests never run migrations.
+
+### venv not activated — "ModuleNotFoundError: No module named
+'sqlalchemy'" (or any installed package) despite it being installed
+Symptom: Prompt shows `PS D:\...>` **without** the `(.venv)` prefix;
+     a project package that's definitely installed can't be found.
+Fix: Run `.venv\Scripts\Activate.ps1` in that terminal before
+     running `python`/`pytest`/`uvicorn`. Often caused by a bad
+     copy-pasted multi-line command (e.g. accidentally including a
+     stray `(.venv) PS ...>` prompt text in the pasted command) that
+     silently breaks the shell session.
+
+### Alembic autogenerate + pgvector: migration file is incomplete
+Symptom: `NameError: name 'pgvector' is not defined` when running
+     `alembic upgrade head` on a migration that has an `embedding
+     pgvector.sqlalchemy.vector.VECTOR(...)` column.
+Fix: `alembic revision --autogenerate` detects the column type but
+     does NOT add the import for it. Manually add
+     `import pgvector.sqlalchemy` near the top of the generated
+     migration file, alongside `import sqlalchemy as sa`.
+
+### Indentation bug: helper function accidentally nested inside
+another function after a large paste
+Symptom: works at import time (`python -c "from ... import x;
+     print('OK')"` succeeds) but fails at call time, or the file
+     "looks right" visually but a function defined after a `try/
+     except` block is actually still inside it.
+Fix: When pasting a large service file update, re-view the whole
+     function boundary (not just the diff) to confirm the new
+     function's `def` is at column 0, not indented under the
+     previous function.
+
+### Groq LLM returns an empty string with no error
+Symptom: `resp.choices[0].message.content` is `""`/`None`, exit
+     code 0, no exception raised anywhere.
+Cause: The model (`openai/gpt-oss-120b`) is a reasoning model — it
+     consumes part of the `max_tokens` budget on internal reasoning
+     before the visible answer. A low `max_tokens` (e.g. 20) can
+     exhaust the whole budget before any answer text is produced.
+Fix: Raise `max_tokens` (300+ for quick manual tests, 800 is the
+     app's default in `llm/client.py`). Always rule this out before
+     assuming an API-key/auth problem.
+
+### Groq "401 Invalid API Key" even after fixing `.env`
+Symptom: Same 401 error persists after pasting a valid key into
+     `.env` and confirming it via `settings.GROQ_API_KEY`.
+Cause: `uvicorn --reload` watches `.py` files, not `.env` — the
+     already-running process still has the old value loaded from
+     when it started.
+Fix: Fully stop (Ctrl+C, wait for "Application shutdown complete")
+     and start a fresh `uvicorn` process after any `.env` change.
+
+### RAG chat "sources" shows the same document multiple times
+Symptom: Asking a question against a single uploaded file lists
+     that file's name 3-5 times under "Sources" in the chat UI.
+Cause: `RAG_TOP_K` chunks are retrieved (not top-K *documents*); a
+     single document can contribute several of the retrieved
+     chunks to one answer, and each chunk becomes one `sources`
+     entry.
+Fix (frontend, `ChatPage.tsx`): dedupe by `document_id` using a
+     `Map` before rendering the sources list, so each source
+     document appears once per answer regardless of chunk count.
+     *(Identified but not yet applied — see §9, "Next session".)*
+
 ---
 
 ## 13. Docker Details
@@ -859,6 +1343,10 @@ Fix: The router file was missing. Add `app/api/v1/receipts.py`
 - Volume: expense_tracker_postgres_data
 - Restart policy: unless-stopped
 - Healthcheck: pg_isready every 5s
+- `vector` extension is bundled in the image but still needs
+  `CREATE EXTENSION IF NOT EXISTS vector` run once per database
+  (main DB: done via the Phase 18C-1 migration; test DB: done
+  automatically by `tests/conftest.py`).
 
 Docker Desktop band hone par container bhi band. Dobara:
     docker compose up -d
@@ -872,7 +1360,10 @@ Tip: Start Docker Desktop when you sign in.
 - Do containers host par chal sakte hain (purana postgres-db 5432,
   naya expense_db 5433).
 - alembic env.py mein `import app.models` zaroori hai.
-- pytest alag DB (expense_tracker_test) use karta hai.
+- pytest alag DB (expense_tracker_test) use karta hai; migrations
+  wahan nahi chaltin (`Base.metadata.create_all()` seedha), isliye
+  koi bhi manually-enabled Postgres extension `conftest.py` mein
+  bhi dobara enable karni padegi (Phase 18C se seekha).
 - OneDrive mein project na rakhein.
 - Har phase ke commit se pehle README + PROJECT_LOG update karein.
 - Account balance AccountUpdate mein intentionally nahi.
@@ -904,14 +1395,41 @@ Tip: Start Docker Desktop when you sign in.
 - Receipts: original_name is untrusted; stored_name is uuid-prefixed.
 - Receipts: files stored in `backend/uploads/receipts/` (gitignored).
 - Analytics weekday heatmap computed in Python (DB-portable).
+- Documents: same untrusted-original-name / uuid-stored-name pattern
+  as receipts; stored in `backend/uploads/documents/` (gitignored).
+- `DocumentRead` deliberately excludes `text_content` from API
+  responses (kept large text out of list/detail payloads); it is
+  never surfaced in the UI yet.
+- Document processing (extract -> chunk -> embed) is synchronous on
+  upload — the request blocks until it's done, including the first
+  time the embedding model downloads.
+- A document's chunks are always deleted and rebuilt from scratch if
+  `_create_chunks()` runs again (idempotent — safe to re-process).
+- If chunking/embedding fails after a successful text extraction,
+  the whole document is marked `status="failed"`, not "ready" —
+  there's no such thing as a "ready" document with zero usable
+  chunks.
+- Chat only ever answers from retrieved chunks (system prompt
+  forbids inventing facts) and always returns `sources`, even when
+  the LLM is asked to say it doesn't know.
+- `RAG_TOP_K=5` returns 5 chunks, which can come from the same
+  document — dedupe by `document_id` in the UI if only unique
+  filenames should be shown (see §12).
+- `GROQ_API_KEY` missing/invalid disables only `/api/v1/chat`
+  (503); everything else in the app is unaffected.
+- Any `.env` change requires a full uvicorn restart, not just
+  `--reload` (which only watches `.py` files).
 
 ---
 
 ## 15. Roadmap (aage kya)
 
 | Phase | Scope                                    | Est. days |
-|-------|------------------------------------------|-----------|
-| 18-20 | RAG, AI chat, agent tools                | 4         |
+|-------|-------------------------------------------|-----------|
+| 19-20 | Agent tools, AI over finance data (not    | 3         |
+|       | just documents — e.g. "how much did I     |           |
+|       | spend this month" answered from live      |           |
+|       | transactions/budgets, not just uploads)   |           |
 | 21    | Testing aur security sweep               | 1         |
 | 22    | Dockerization aur deployment             | 2         |
 | 23    | Final QA aur docs                        | 1         |
@@ -921,15 +1439,22 @@ Tip: Start Docker Desktop when you sign in.
 - Frontend MVP complete at Phase 15 (57 tests)
 - Post-MVP polish (forgot password, dark mode, responsive)
 - Analytics + exports + receipts at Phase 17
-- **Total: 118 backend + 62 frontend = 180 tests**
+- AI: documents, chunking/embeddings, RAG chat at Phase 18
+- **Total: 135 backend + 62 frontend = 197 tests**
 - Git tags: v0.1.0-mvp, v0.1.1-forgot-password,
   v0.2.0-analytics-receipts
 
-**Next: Phase 18-20 (AI)** — needs decisions:
-- LLM provider (OpenAI / Anthropic / Ollama)
-- Embedding model
-- API key in backend `.env`
-- pgvector already set up for RAG
+**Open items carried into next session (see §9 for details):**
+- Dedupe chat `sources` by document in the frontend
+- Optional `.docx` upload support (blocked on a one-off network
+  issue installing `lxml`, not a code problem)
+- Optional: surface extracted document text somewhere in the UI
+
+**Next: Phase 19-20 (AI agent tools)** — needs decisions:
+- Which finance operations should the AI be allowed to call as
+  tools (read-only analytics first, before any write access)?
+- Whether chat should merge document context with live financial
+  data in one answer, or keep them as separate assistants
 
 ---
 

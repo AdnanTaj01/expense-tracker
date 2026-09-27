@@ -15,6 +15,8 @@ import RegisterPage from "./pages/RegisterPage";
 import ResetPasswordPage from "./pages/ResetPasswordPage";
 import TransactionsPage from "./pages/TransactionsPage";
 import DocumentsPage from "./pages/DocumentsPage";
+import ChatPage from "./pages/ChatPage";
+
 function App() {
   return (
     <BrowserRouter>
@@ -34,6 +36,7 @@ function App() {
             <Route path="/analytics" element={<AnalyticsPage />} />
             <Route path="/receipts" element={<ReceiptsPage />} />
             <Route path="/documents" element={<DocumentsPage />} />
+            <Route path="/chat" element={<ChatPage />} />
           </Route>
         </Route>
 

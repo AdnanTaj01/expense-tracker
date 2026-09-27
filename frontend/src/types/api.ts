@@ -225,3 +225,20 @@ export interface Document {
   created_at: string;
   updated_at: string;
 }
+
+export interface ChatSource {
+  document_id: number;
+  document_name: string;
+  chunk_index: number;
+  excerpt: string;
+}
+
+export interface ChatRequest {
+  message: string;
+  document_id?: number | null;
+}
+
+export interface ChatResponse {
+  answer: string;
+  sources: ChatSource[];
+}

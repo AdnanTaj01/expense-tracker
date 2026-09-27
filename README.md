@@ -1,9 +1,10 @@
 # Expense Tracker
 
-A multi-user personal finance system with an optional AI assistant.
+A multi-user personal finance system with an AI assistant that can answer
+questions about your uploaded documents (RAG).
 
-**MVP complete + post-MVP features.** The whole finance app works without
-any AI.
+**MVP complete + post-MVP features + AI document assistant.** The whole
+finance app works without any AI.
 
 The app works when the AI is down. The LLM explains results; it is never
 the source of truth.
@@ -16,8 +17,9 @@ the source of truth.
 - **ORM / migrations:** SQLAlchemy 2.x (sync) + Alembic + psycopg 3
 - **Auth:** JWT (PyJWT) + Argon2 (pwdlib)
 - **Charts:** Recharts (Phase 16)
-- **AI:** LLM provider TBD + RAG via pgvector — Phase 18+
-- **Testing:** pytest (118 backend tests) + Vitest (62 frontend tests)
+- **AI:** Groq (LLM) + sentence-transformers (local embeddings) +
+  pgvector (semantic search / RAG) — Phase 18
+- **Testing:** pytest (135 backend tests) + Vitest (62 frontend tests)
 
 ## Architecture rule
 
@@ -33,26 +35,33 @@ the source of truth.
     |-- docs/          decisions, project log
     |-- backend/       FastAPI app
     |   |-- app/
+    |   |   |-- ai/        AI / RAG layer (Phase 18)
+    |   |   |   |-- llm/       Groq client wrapper (client.py)
+    |   |   |   |-- rag/       chunking.py, embeddings.py, search.py
     |   |   |-- api/       routers, deps
+    |   |   |   |-- v1/        accounts, ..., documents.py, chat.py
     |   |   |-- core/      config, security
     |   |   |-- db/        base, session
-    |   |   |-- models/    SQLAlchemy tables
-    |   |   |-- schemas/   Pydantic request/response
-    |   |   |-- services/  business logic
-    |   |   |-- scripts/   CLI helpers (reset_password, list_users,
-    |   |   |              seed_demo_data)
-    |   |   |-- ai/        (Phase 18+)
+    |   |   |-- models/    SQLAlchemy tables (incl. document,
+    |   |   |              document_chunk)
+    |   |   |-- schemas/   Pydantic request/response (incl. document,
+    |   |   |              chat)
+    |   |   |-- services/  business logic (incl. document_service,
+    |   |   |              chat_service)
     |   |-- alembic/       migrations
-    |   |-- tests/         pytest suite (118 tests)
-    |   |-- uploads/       receipts stored here (gitignored)
+    |   |-- scripts/       seed_demo_data.py (seeds a demo user via
+    |   |                  the running API for manual testing)
+    |   |-- tests/         pytest suite (135 tests)
+    |   |-- uploads/       receipts + documents stored here (gitignored)
     |   |-- requirements.txt
     |-- frontend/      React app
     |   |-- src/
-    |   |   |-- api/       HTTP client + API modules
+    |   |   |-- api/       HTTP client + API modules (incl. documents.ts,
+    |   |   |              chat.ts)
     |   |   |-- components/Layout, ProtectedRoute, PasswordInput,
     |   |   |              ExportButton
     |   |   |-- context/   AuthContext, ThemeContext
-    |   |   |-- pages/     All screens
+    |   |   |-- pages/     All screens (incl. DocumentsPage, ChatPage)
     |   |   |-- test/      Vitest setup + helpers
     |   |   |-- types/     TypeScript types
     |   |-- package.json
@@ -65,6 +74,8 @@ the source of truth.
 - Node.js 24 LTS
 - Docker Desktop
 - Git
+- A free [Groq API key](https://console.groq.com/keys) (for the AI
+  assistant — the rest of the app works without it)
 
 ## Local setup
 
@@ -91,11 +102,32 @@ Backend `.env` (in `backend/`):
     FRONTEND_URL=http://localhost:5173
     DEBUG_RESET_LINKS=true
 
+    # Document uploads (for AI / RAG)
+    UPLOAD_DIR=uploads
+    DOCUMENT_MAX_SIZE_MB=20
+
+    # LLM (Groq)
+    GROQ_API_KEY=<your Groq API key>
+    GROQ_MODEL=openai/gpt-oss-120b
+
+    # Embeddings (local, sentence-transformers)
+    EMBEDDING_MODEL=BAAI/bge-small-en-v1.5
+    EMBEDDING_DIM=384
+
+    # RAG tuning
+    RAG_CHUNK_SIZE=800
+    RAG_CHUNK_OVERLAP=100
+    RAG_TOP_K=5
+
 **Important:** in `DATABASE_URL`, encode these characters:
 `@` -> `%40`, `:` -> `%3A`, `/` -> `%2F`, `#` -> `%23`, `%` -> `%25`.
 
 `DEBUG_RESET_LINKS=true` prints password reset links to the backend
 console (dev only). Set to `false` in production and add SMTP.
+
+If `GROQ_API_KEY` is left blank or invalid, every other feature keeps
+working — only `/api/v1/chat` returns a `503` explaining the AI
+assistant is unavailable.
 
 Frontend `.env` (in `frontend/`) — optional:
 
@@ -104,6 +136,9 @@ Frontend `.env` (in `frontend/`) — optional:
 The `.env` files are git-ignored. Use `.env.example` as a template.
 
 ### 3. Start PostgreSQL
+
+The Postgres image is `pgvector/pgvector`, which ships the `vector`
+extension needed for semantic search.
 
     docker compose up -d
     docker compose ps    # wait for "healthy"
@@ -116,6 +151,9 @@ The `.env` files are git-ignored. Use `.env.example` as a template.
     pip install -r requirements.txt
     alembic upgrade head
     uvicorn app.main:app --reload --port 8000
+
+The first document you upload triggers a one-time download of the
+local embedding model (a few hundred MB, cached afterwards).
 
 API docs: http://localhost:8000/docs
 
@@ -140,7 +178,8 @@ Frontend:
     npm test
     npm run test:coverage
 
-Create the test database once:
+Create the test database once (also needs the `vector` extension,
+which `tests/conftest.py` enables automatically on first run):
 
     docker compose exec db psql -U expense_user -d expense_tracker -c "CREATE DATABASE expense_tracker_test OWNER expense_user;"
 
@@ -172,6 +211,19 @@ Create the test database once:
 - **CSV exports** — transactions, accounts, budgets (one click)
 - **Receipts** — upload images/PDF (5 MB max), attach to a transaction,
   download, delete
+
+### AI Assistant (Phase 18)
+
+- **Documents** — upload PDF, TXT, Markdown, CSV, JSON, XML, or HTML
+  files (20 MB max); text is extracted automatically on upload
+- **Chunking + embeddings** — extracted text is split into overlapping
+  chunks and embedded locally (sentence-transformers), stored in
+  Postgres via pgvector
+- **AI chat (RAG)** — ask questions in plain English about your
+  uploaded documents; the assistant retrieves the most relevant
+  chunks by semantic similarity and answers using only that context,
+  citing which document(s) it used
+- Every document and chat response is scoped to the logged-in user
 
 ### UX
 
@@ -234,6 +286,21 @@ Transaction list supports: `account_id`, `category_id`, `kind`,
 - `GET /api/v1/receipts/{id}/download`
 - `DELETE /api/v1/receipts/{id}`
 
+### Documents (AI)
+
+- `GET /api/v1/documents`
+- `POST /api/v1/documents` (multipart: file)
+- `GET /api/v1/documents/{id}`
+- `GET /api/v1/documents/{id}/download`
+- `DELETE /api/v1/documents/{id}`
+
+### Chat (AI, RAG)
+
+- `POST /api/v1/chat` — body: `{ "message": "...", "document_id": null }`
+  (`document_id` optional, narrows the search to one document).
+  Returns `{ "answer": "...", "sources": [...] }`. Returns `503` if
+  the LLM is unavailable (e.g. no `GROQ_API_KEY`).
+
 ### Meta
 
 - `GET /health`
@@ -250,9 +317,15 @@ List all registered users:
 
     python -m app.scripts.list_users
 
-Seed demo data (accounts, transactions, budgets) for a user:
+Seed a demo user with realistic data (accounts, categories,
+~4 months of transactions, budgets) for manual UI testing — run this
+against a running backend server:
 
-    python -m app.scripts.seed_demo_data user@example.com
+    uvicorn app.main:app --reload --port 8000   # in one terminal
+    python scripts\seed_demo_data.py            # in another terminal
+
+Prints the demo login (`demo@example.com` / `DemoPass123!`) when done.
+Safe to re-run — it reuses the existing demo user instead of duplicating it.
 
 ## Progress
 
@@ -263,12 +336,13 @@ Seed demo data (accounts, transactions, budgets) for a user:
 | 14-15    | All frontend pages (MVP)                 | Done ✅|
 | Post-MVP | Forgot password, dark mode, responsive   | Done ✅|
 | 16-17    | Analytics, exports, receipts             | Done ✅|
-| 18-20    | AI: RAG, chat, agent tools               | Next   |
+| 18       | AI: documents, RAG, chat                 | Done ✅|
+| 19-20    | Agent tools, AI over finance data         | Next   |
 | 21       | Testing and security sweep               |        |
 | 22       | Dockerization and deployment             |        |
 | 23       | Final QA and docs                        |        |
 
-**180 tests passing** (118 backend + 62 frontend).
+**197 tests passing** (135 backend + 62 frontend).
 
 Tags:
 - `v0.1.0-mvp`
@@ -293,5 +367,12 @@ decisions, troubleshooting, and command reference.
   (`DEBUG_RESET_LINKS=true`). In production this becomes an email send.
 - Password reset tokens: SHA-256 hashed, 15-min expiry, single-use,
   one active per user.
-- Receipt files live in `backend/uploads/receipts/` (gitignored).
-  In production this becomes object storage (Phase 22).
+- Receipt files live in `backend/uploads/receipts/` (gitignored);
+  document files live in `backend/uploads/documents/` (gitignored).
+  In production both become object storage (Phase 22).
+- Document text is stored as plain text alongside the file; it is
+  chunked and embedded (pgvector) immediately after extraction so
+  chat can search it right away.
+- The AI assistant only answers from retrieved document chunks — it
+  is told to say "I don't have enough information" rather than
+  invent facts, and every answer lists which document(s) it used.

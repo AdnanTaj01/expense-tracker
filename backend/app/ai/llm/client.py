@@ -38,7 +38,7 @@ def chat(
     messages: list[ChatMessage],
     *,
     temperature: float = 0.2,
-    max_tokens: int = 800,
+    max_tokens: int = 2000,
 ) -> str:
     """Send a chat completion request and return the assistant's text.
 
