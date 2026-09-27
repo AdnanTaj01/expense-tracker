@@ -11,6 +11,8 @@ from app.services import (
     user_service,
     receipt_service,
     document_service,
+    chat_service,
+    
 )
 
 __all__ = [
@@ -26,4 +28,5 @@ __all__ = [
     "user_service",
     "receipt_service",
     "document_service",
+    "chat_service",
 ]

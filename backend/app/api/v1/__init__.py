@@ -12,6 +12,7 @@ from app.api.v1 import (
     receipts,
     recurring,
     transactions,
+    chat,
 )
 
 api_router = APIRouter(prefix="/api/v1")
@@ -26,5 +27,6 @@ api_router.include_router(analytics.router)
 api_router.include_router(exports.router)
 api_router.include_router(receipts.router)
 api_router.include_router(documents.router)
+api_router.include_router(chat.router)
 
 __all__ = ["api_router"]

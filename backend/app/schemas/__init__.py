@@ -92,4 +92,7 @@ __all__ = [
     "UserCreate",
     "UserRead",
     "WeekdayHeatmapItem",
+    "ChatRequest",
+    "ChatResponse",
+    "ChatSource",
 ]
