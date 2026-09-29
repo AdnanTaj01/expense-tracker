@@ -89,12 +89,16 @@ function ChatPage() {
                   }`}
                 >
                   <div>{turn.content}</div>
-                  {turn.sources && turn.sources.length > 0 && (
+                                    {turn.sources && turn.sources.length > 0 && (
                     <div className="mt-2 pt-2 border-t border-slate-300 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400 space-y-1">
                       <div className="font-medium">Sources:</div>
-                      {turn.sources.map((s, j) => (
-                        <div key={j} className="truncate">
-                          📄 {s.document_name}
+                      {Array.from(
+                        new Map(
+                          turn.sources.map((s) => [s.document_id, s.document_name]),
+                        ),
+                      ).map(([docId, docName]) => (
+                        <div key={docId} className="truncate">
+                          📄 {docName}
                         </div>
                       ))}
                     </div>
