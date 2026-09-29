@@ -4,6 +4,7 @@ from app.schemas.account import (
     AccountType,
     AccountUpdate,
 )
+from app.schemas.agent import AgentChatRequest, AgentChatResponse, AgentToolCallLog
 from app.schemas.analytics import (
     AccountSpend,
     CategoryTrend,
@@ -29,6 +30,7 @@ from app.schemas.category import (
     CategoryRead,
     CategoryUpdate,
 )
+from app.schemas.chat import ChatRequest, ChatResponse, ChatSource
 from app.schemas.dashboard import (
     CategoryBreakdownItem,
     DashboardOverview,
@@ -52,14 +54,15 @@ from app.schemas.transaction import (
 )
 from app.schemas.user import UserBase, UserCreate, UserRead
 
-from app.schemas.chat import ChatRequest, ChatResponse, ChatSource
-
 __all__ = [
     "AccountCreate",
     "AccountRead",
     "AccountSpend",
     "AccountType",
     "AccountUpdate",
+    "AgentChatRequest",
+    "AgentChatResponse",
+    "AgentToolCallLog",
     "BudgetCreate",
     "BudgetRead",
     "BudgetUpdate",
@@ -72,6 +75,9 @@ __all__ = [
     "CategoryTrendPoint",
     "CategoryUpdate",
     "ChangePassword",
+    "ChatRequest",
+    "ChatResponse",
+    "ChatSource",
     "DashboardOverview",
     "DashboardSummary",
     "DocumentRead",
@@ -94,7 +100,4 @@ __all__ = [
     "UserCreate",
     "UserRead",
     "WeekdayHeatmapItem",
-    "ChatRequest",
-    "ChatResponse",
-    "ChatSource",
 ]
