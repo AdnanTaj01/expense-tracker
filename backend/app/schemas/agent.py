@@ -13,6 +13,24 @@ class AgentToolCallLog(BaseModel):
     result: dict
 
 
+class PendingAction(BaseModel):
+    """A write action the AI wants to take, awaiting user confirmation."""
+
+    tool: str
+    arguments: dict
+    description: str
+
+
 class AgentChatResponse(BaseModel):
     answer: str
     tool_calls: list[AgentToolCallLog]
+    pending_action: PendingAction | None = None
+
+
+class AgentConfirmRequest(BaseModel):
+    tool: str
+    arguments: dict
+
+
+class AgentConfirmResponse(BaseModel):
+    result: dict

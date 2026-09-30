@@ -242,3 +242,18 @@ export interface ChatResponse {
   answer: string;
   sources: ChatSource[];
 }
+
+export interface AgentChatRequest {
+  message: string;
+}
+
+export interface AgentToolCallLog {
+  tool: string;
+  arguments: Record<string, unknown>;
+  result: Record<string, unknown>;
+}
+
+export interface AgentChatResponse {
+  answer: string;
+  tool_calls: AgentToolCallLog[];
+}
