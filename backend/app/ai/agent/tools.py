@@ -40,8 +40,8 @@ def _jsonable(value: Any) -> Any:
 
 def get_dashboard_summary(db: Session, user: User, args: dict) -> dict:
     today = date.today()
-    year = args.get("year", today.year)
-    month = args.get("month", today.month)
+    year = args.get("year") or today.year
+    month = args.get("month") or today.month
     summary = dashboard_service.get_summary(db, user, year, month)
     return _jsonable(summary)
 
@@ -71,8 +71,8 @@ def list_recent_transactions(db: Session, user: User, args: dict) -> dict:
 
 def get_budget_usage(db: Session, user: User, args: dict) -> dict:
     today = date.today()
-    year = args.get("year", today.year)
-    month = args.get("month", today.month)
+    year = args.get("year") or today.year
+    month = args.get("month") or today.month
     budgets = budget_service.list_budgets(db, user, year=year, month=month)
     result = []
     for b in budgets:
@@ -134,8 +134,8 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "year": {"type": "integer", "description": "Optional. Defaults to current year."},
-                    "month": {"type": "integer", "description": "Optional. Defaults to current month."},
+                    "year": {"type": ["integer", "null"], "description": "Optional. Defaults to current year."},
+                    "month": {"type": ["integer", "null"], "description": "Optional. Defaults to current month."},
                 },
             },
         },
@@ -148,8 +148,8 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "limit": {"type": "integer", "description": "Max transactions to return (default 10, max 50)."},
-                    "kind": {"type": "string", "enum": ["income", "expense"], "description": "Optional filter."},
+                    "limit": {"type": ["integer", "null"], "description": "Max transactions to return (default 10, max 50)."},
+                    "kind": {"type": ["string", "null"], "enum": ["income", "expense", None], "description": "Optional filter."},
                 },
             },
         },
@@ -162,8 +162,8 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "year": {"type": "integer"},
-                    "month": {"type": "integer"},
+                    "year": {"type": ["integer", "null"]},
+                    "month": {"type": ["integer", "null"]},
                 },
             },
         },
@@ -176,7 +176,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "parameters": {"type": "object", "properties": {}},
         },
     },
-        {
+    {
         "type": "function",
         "function": {
             "name": "list_categories",
@@ -184,7 +184,7 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "parameters": {
                 "type": "object",
                 "properties": {
-                    "kind": {"type": "string", "enum": ["income", "expense"], "description": "Optional filter."},
+                    "kind": {"type": ["string", "null"], "enum": ["income", "expense", None], "description": "Optional filter."},
                 },
             },
         },
