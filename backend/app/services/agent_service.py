@@ -4,12 +4,6 @@ import json
 
 from sqlalchemy.orm import Session
 
-from app.ai.agent.tools import TOOL_DEFINITIONS, TOOL_REGISTRY
-from app.ai.agent.write_tools import (
-    WRITE_TOOL_DEFINITIONS,
-    WRITE_TOOL_DESCRIBERS,
-    WRITE_TOOL_REGISTRY,
-)
 from app.ai.llm.client import ChatMessage, chat_with_tools
 from app.models.user import User
 from app.schemas.agent import (
@@ -33,11 +27,19 @@ SYSTEM_PROMPT = (
     "use the user's currency symbol/code as returned by the tools."
 )
 
-ALL_TOOL_DEFINITIONS = TOOL_DEFINITIONS + WRITE_TOOL_DEFINITIONS
 MAX_TOOL_ROUNDS = 4
 
 
 def ask(db: Session, user: User, message: str) -> AgentChatResponse:
+    from app.ai.agent.tools import TOOL_DEFINITIONS, TOOL_REGISTRY
+    from app.ai.agent.write_tools import (
+        WRITE_TOOL_DEFINITIONS,
+        WRITE_TOOL_DESCRIBERS,
+        WRITE_TOOL_REGISTRY,
+    )
+
+    all_tool_definitions = TOOL_DEFINITIONS + WRITE_TOOL_DEFINITIONS
+
     messages: list[ChatMessage] = [
         ChatMessage(role="system", content=SYSTEM_PROMPT),
         ChatMessage(role="user", content=message),
@@ -45,13 +47,11 @@ def ask(db: Session, user: User, message: str) -> AgentChatResponse:
     tool_log: list[AgentToolCallLog] = []
 
     for _ in range(MAX_TOOL_ROUNDS):
-        result = chat_with_tools(messages, ALL_TOOL_DEFINITIONS)
+        result = chat_with_tools(messages, all_tool_definitions)
 
         if not result.tool_calls:
             return AgentChatResponse(answer=result.content or "", tool_calls=tool_log)
 
-        # If the model wants to call a WRITE tool, stop and ask for
-        # confirmation instead of executing it or continuing the loop.
         for tc in result.tool_calls:
             if tc.name in WRITE_TOOL_REGISTRY:
                 describe = WRITE_TOOL_DESCRIBERS.get(tc.name, lambda a: tc.name)
@@ -65,7 +65,6 @@ def ask(db: Session, user: User, message: str) -> AgentChatResponse:
                     answer=answer, tool_calls=tool_log, pending_action=pending
                 )
 
-        # All tool calls this round were read-only — execute them and continue.
         messages.append(
             ChatMessage(
                 role="assistant",
@@ -99,12 +98,14 @@ def ask(db: Session, user: User, message: str) -> AgentChatResponse:
                 )
             )
 
-    final = chat_with_tools(messages, ALL_TOOL_DEFINITIONS)
+    final = chat_with_tools(messages, all_tool_definitions)
     return AgentChatResponse(answer=final.content or "", tool_calls=tool_log)
 
 
 def confirm(db: Session, user: User, tool: str, arguments: dict) -> AgentConfirmResponse:
     """Actually execute a previously proposed write action."""
+    from app.ai.agent.write_tools import WRITE_TOOL_REGISTRY
+
     fn = WRITE_TOOL_REGISTRY.get(tool)
     if fn is None:
         return AgentConfirmResponse(result={"error": f"Unknown or non-write tool: {tool}"})

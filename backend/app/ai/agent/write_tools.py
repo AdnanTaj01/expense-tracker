@@ -12,7 +12,7 @@ skipped validation.
 """
 from __future__ import annotations
 
-from datetime import datetime
+from datetime import UTC, datetime
 from typing import Any
 
 from pydantic import ValidationError
@@ -21,16 +21,19 @@ from sqlalchemy.orm import Session
 from app.models.user import User
 from app.schemas.budget import BudgetCreate
 from app.schemas.transaction import TransactionCreate
-from app.services import budget_service, transaction_service
+from app.services.budget_service import create_budget
+from app.services.transaction_service import create_transaction
 
 
 def create_transaction_tool(db: Session, user: User, args: dict) -> dict:
+    args = {**args}
+    args.setdefault("occurred_at", datetime.now(UTC).isoformat())
     try:
         payload = TransactionCreate(**args)
     except ValidationError as exc:
         return {"error": f"Invalid transaction data: {exc.errors()}"}
 
-    transaction = transaction_service.create_transaction(db, user, payload)
+    transaction = create_transaction(db, user, payload)
     return {
         "id": transaction.id,
         "kind": transaction.kind,
@@ -43,12 +46,16 @@ def create_transaction_tool(db: Session, user: User, args: dict) -> dict:
 
 
 def create_budget_tool(db: Session, user: User, args: dict) -> dict:
+    today = datetime.now(UTC)
+    args = {**args}
+    args.setdefault("year", today.year)
+    args.setdefault("month", today.month)
     try:
         payload = BudgetCreate(**args)
     except ValidationError as exc:
         return {"error": f"Invalid budget data: {exc.errors()}"}
 
-    budget = budget_service.create_budget(db, user, payload)
+    budget = create_budget(db, user, payload)
     return {
         "id": budget.id,
         "category_id": budget.category_id,
@@ -121,11 +128,11 @@ WRITE_TOOL_DEFINITIONS: list[dict[str, Any]] = [
                 "type": "object",
                 "properties": {
                     "category_id": {"type": "integer"},
-                    "year": {"type": "integer"},
-                    "month": {"type": "integer"},
+                    "year": {"type": "integer", "description": "Optional. Defaults to current year."},
+                    "month": {"type": "integer", "description": "Optional. Defaults to current month."},
                     "limit_amount": {"type": "string", "description": "Positive decimal amount, e.g. '15000.00'."},
                 },
-                "required": ["category_id", "year", "month", "limit_amount"],
+                "required": ["category_id", "limit_amount"],
             },
         },
     },
