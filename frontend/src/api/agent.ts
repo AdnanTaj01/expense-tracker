@@ -1,5 +1,10 @@
 import { ApiError, getToken } from "./client";
-import type { AgentChatRequest, AgentChatResponse } from "../types/api";
+import type {
+  AgentChatRequest,
+  AgentChatResponse,
+  AgentConfirmRequest,
+  AgentConfirmResponse,
+} from "../types/api";
 
 const API_BASE_URL =
   import.meta.env.VITE_API_BASE_URL ?? "http://localhost:8000";
@@ -15,6 +20,18 @@ export const agentApi = {
       body: JSON.stringify(payload),
     });
     return handleJson<AgentChatResponse>(res);
+  },
+
+  confirm: async (payload: AgentConfirmRequest): Promise<AgentConfirmResponse> => {
+    const res = await fetch(`${API_BASE_URL}/api/v1/agent/confirm`, {
+      method: "POST",
+      headers: {
+        "Content-Type": "application/json",
+        ...authHeaders(),
+      },
+      body: JSON.stringify(payload),
+    });
+    return handleJson<AgentConfirmResponse>(res);
   },
 };
 

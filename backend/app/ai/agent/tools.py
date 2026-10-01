@@ -13,7 +13,13 @@ from typing import Any
 from sqlalchemy.orm import Session
 
 from app.models.user import User
-from app.services import account_service, budget_service, dashboard_service, transaction_service
+from app.services import (
+    account_service,
+    budget_service,
+    category_service,
+    dashboard_service,
+    transaction_service,
+)
 
 
 def _jsonable(value: Any) -> Any:
@@ -98,7 +104,14 @@ def list_accounts(db: Session, user: User, args: dict) -> dict:
         ]
     }
 
-
+def list_categories(db: Session, user: User, args: dict) -> dict:
+    kind = args.get("kind")
+    categories = category_service.list_categories(db, user, kind=kind)
+    return {
+        "categories": [
+            {"id": c.id, "name": c.name, "kind": c.kind} for c in categories
+        ]
+    }
 # --- Tool registry + JSON schema definitions ----------------------------
 
 TOOL_REGISTRY = {
@@ -106,6 +119,7 @@ TOOL_REGISTRY = {
     "list_recent_transactions": list_recent_transactions,
     "get_budget_usage": get_budget_usage,
     "list_accounts": list_accounts,
+    "list_categories": list_categories,
 }
 
 TOOL_DEFINITIONS: list[dict[str, Any]] = [
@@ -160,6 +174,19 @@ TOOL_DEFINITIONS: list[dict[str, Any]] = [
             "name": "list_accounts",
             "description": "List all of the user's accounts with their current balances.",
             "parameters": {"type": "object", "properties": {}},
+        },
+    },
+        {
+        "type": "function",
+        "function": {
+            "name": "list_categories",
+            "description": "List the user's income or expense categories, with their ids and names.",
+            "parameters": {
+                "type": "object",
+                "properties": {
+                    "kind": {"type": "string", "enum": ["income", "expense"], "description": "Optional filter."},
+                },
+            },
         },
     },
 ]

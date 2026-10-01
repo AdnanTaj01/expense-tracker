@@ -253,7 +253,23 @@ export interface AgentToolCallLog {
   result: Record<string, unknown>;
 }
 
+export interface PendingAction {
+  tool: string;
+  arguments: Record<string, unknown>;
+  description: string;
+}
+
 export interface AgentChatResponse {
   answer: string;
   tool_calls: AgentToolCallLog[];
+  pending_action: PendingAction | null;
+}
+
+export interface AgentConfirmRequest {
+  tool: string;
+  arguments: Record<string, unknown>;
+}
+
+export interface AgentConfirmResponse {
+  result: Record<string, unknown>;
 }

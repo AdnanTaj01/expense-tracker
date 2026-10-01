@@ -2,12 +2,14 @@ import { useEffect, useRef, useState, type FormEvent } from "react";
 
 import { ApiError } from "../api/client";
 import { agentApi } from "../api/agent";
-import type { AgentToolCallLog } from "../types/api";
+import type { AgentToolCallLog, PendingAction } from "../types/api";
 
 interface AgentTurn {
   role: "user" | "assistant";
   content: string;
   toolCalls?: AgentToolCallLog[];
+  pendingAction?: PendingAction | null;
+  resolved?: "confirmed" | "cancelled";
 }
 
 const cardCls =
@@ -30,6 +32,7 @@ function AgentPage() {
   const [turns, setTurns] = useState<AgentTurn[]>([]);
   const [message, setMessage] = useState("");
   const [sending, setSending] = useState(false);
+  const [confirming, setConfirming] = useState<number | null>(null);
   const [error, setError] = useState<string | null>(null);
   const bottomRef = useRef<HTMLDivElement>(null);
 
@@ -51,7 +54,12 @@ function AgentPage() {
       const res = await agentApi.ask({ message: trimmed });
       setTurns((prev) => [
         ...prev,
-        { role: "assistant", content: res.answer, toolCalls: res.tool_calls },
+        {
+          role: "assistant",
+          content: res.answer,
+          toolCalls: res.tool_calls,
+          pendingAction: res.pending_action,
+        },
       ]);
     } catch (err) {
       const detail = err instanceof ApiError ? err.detail : "Something went wrong.";
@@ -62,12 +70,44 @@ function AgentPage() {
     }
   }
 
+  async function onConfirm(turnIndex: number, action: PendingAction) {
+    setConfirming(turnIndex);
+    setError(null);
+    try {
+      const res = await agentApi.confirm({ tool: action.tool, arguments: action.arguments });
+      const resultText =
+        "error" in res.result
+          ? `⚠️ ${String(res.result.error)}`
+          : `✅ Done — ${action.description}.`;
+      setTurns((prev) => {
+        const next = [...prev];
+        next[turnIndex] = { ...next[turnIndex], resolved: "confirmed" };
+        next.push({ role: "assistant", content: resultText });
+        return next;
+      });
+    } catch (err) {
+      const detail = err instanceof ApiError ? err.detail : "Could not complete the action.";
+      setError(detail);
+    } finally {
+      setConfirming(null);
+    }
+  }
+
+  function onCancel(turnIndex: number) {
+    setTurns((prev) => {
+      const next = [...prev];
+      next[turnIndex] = { ...next[turnIndex], resolved: "cancelled" };
+      next.push({ role: "assistant", content: "Okay, cancelled — nothing was changed." });
+      return next;
+    });
+  }
+
   return (
     <div className="text-slate-900 dark:text-slate-100 flex flex-col h-[calc(100vh-8rem)]">
       <div className="mb-4">
         <h1 className="text-2xl font-bold">Finance Assistant</h1>
         <p className="text-sm text-slate-500 dark:text-slate-400 mt-1">
-          Ask about your real balances, transactions, and budgets.
+          Ask about your finances, or ask it to add a transaction or budget.
         </p>
       </div>
 
@@ -78,7 +118,7 @@ function AgentPage() {
               <p>
                 Try asking{" "}
                 <span className="italic">
-                  "What's my total balance?" or "How much have I spent this month?"
+                  "What's my total balance?" or "Add a 500 lunch expense from my cash account"
                 </span>
               </p>
             </div>
@@ -96,11 +136,49 @@ function AgentPage() {
                   }`}
                 >
                   <div>{turn.content}</div>
+
                   {turn.toolCalls && turn.toolCalls.length > 0 && (
                     <div className="mt-2 pt-2 border-t border-slate-300 dark:border-slate-700 text-xs text-slate-500 dark:text-slate-400 space-y-1">
                       {turn.toolCalls.map((tc, j) => (
                         <div key={j}>🔧 {toolLabel(tc.tool)}</div>
                       ))}
+                    </div>
+                  )}
+
+                  {turn.pendingAction && !turn.resolved && (
+                    <div className="mt-3 pt-3 border-t border-slate-300 dark:border-slate-700">
+                      <div className="text-xs font-medium mb-2 text-amber-700 dark:text-amber-400">
+                        ⚠️ Confirmation needed: {turn.pendingAction.description}
+                      </div>
+                      <div className="flex gap-2">
+                        <button
+                          type="button"
+                          onClick={() => void onConfirm(i, turn.pendingAction!)}
+                          disabled={confirming === i}
+                          className="px-3 py-1.5 text-xs rounded-md bg-green-600 text-white hover:bg-green-700 disabled:opacity-50 transition-colors"
+                        >
+                          {confirming === i ? "Working…" : "Confirm"}
+                        </button>
+                        <button
+                          type="button"
+                          onClick={() => onCancel(i)}
+                          disabled={confirming === i}
+                          className="px-3 py-1.5 text-xs rounded-md bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600 disabled:opacity-50 transition-colors"
+                        >
+                          Cancel
+                        </button>
+                      </div>
+                    </div>
+                  )}
+
+                  {turn.pendingAction && turn.resolved === "cancelled" && (
+                    <div className="mt-2 pt-2 border-t border-slate-300 dark:border-slate-700 text-xs text-slate-400 dark:text-slate-500 italic">
+                      Cancelled
+                    </div>
+                  )}
+                  {turn.pendingAction && turn.resolved === "confirmed" && (
+                    <div className="mt-2 pt-2 border-t border-slate-300 dark:border-slate-700 text-xs text-green-600 dark:text-green-400 italic">
+                      Confirmed
                     </div>
                   )}
                 </div>
