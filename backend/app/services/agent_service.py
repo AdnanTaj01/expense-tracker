@@ -4,7 +4,7 @@ import json
 
 from sqlalchemy.orm import Session
 
-from app.ai.llm.client import ChatMessage, chat_with_tools
+from app.ai.llm.client import ChatMessage, chat, chat_with_tools
 from app.models.user import User
 from app.schemas.agent import (
     AgentChatResponse,
@@ -50,7 +50,7 @@ def ask(db: Session, user: User, message: str) -> AgentChatResponse:
     tool_log: list[AgentToolCallLog] = []
 
     for _ in range(MAX_TOOL_ROUNDS):
-        result = chat_with_tools(messages, all_tool_definitions)
+        result = chat_with_tools(messages, all_tool_definitions, max_tokens=9000)
 
         if not result.tool_calls:
             return AgentChatResponse(answer=result.content or "", tool_calls=tool_log)
@@ -101,9 +101,8 @@ def ask(db: Session, user: User, message: str) -> AgentChatResponse:
                 )
             )
 
-    final = chat_with_tools(messages, all_tool_definitions)
-    return AgentChatResponse(answer=final.content or "", tool_calls=tool_log)
-
+    final_answer = chat(messages, max_tokens=9000)
+    return AgentChatResponse(answer=final_answer, tool_calls=tool_log)
 
 def confirm(db: Session, user: User, tool: str, arguments: dict) -> AgentConfirmResponse:
     """Actually execute a previously proposed write action."""
