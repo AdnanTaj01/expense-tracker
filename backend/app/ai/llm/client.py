@@ -87,13 +87,13 @@ def chat(
     except Exception as exc:  # noqa: BLE001 — wrap any provider error
         raise LLMUnavailableError(str(exc)) from exc
 
-
 def chat_with_tools(
     messages: list[ChatMessage],
     tools: list[dict],
     *,
     temperature: float = 0.2,
     max_tokens: int = 2000,
+    tool_choice: str = "auto",
 ) -> ChatCompletionResult:
     """Send a chat completion request with tool/function definitions.
 
@@ -111,7 +111,7 @@ def chat_with_tools(
             model=settings.GROQ_MODEL,
             messages=[_message_to_dict(m) for m in messages],
             tools=tools,
-            tool_choice="auto",
+            tool_choice=tool_choice,
             temperature=temperature,
             max_tokens=max_tokens,
         )
